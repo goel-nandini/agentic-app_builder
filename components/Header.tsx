@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Zap } from "lucide-react";
-import { Show, SignUpButton, SignInButton } from "@clerk/nextjs";
+import { Show, SignUpButton, SignInButton, UserButton } from "@clerk/nextjs";
 
 const Header = () => {
     return (
@@ -19,8 +19,9 @@ const Header = () => {
                 </Link>
 
                 <div className="flex items-center gap-5">
-                    <Link
-                        href="/projects"
+                    <Show when="signed-in">
+                         <Link
+                        href={"/projects"}
                         className="text-[13px] font-medium text-white/60 transition-colors hover:text-white"
                     >
                         Projects
@@ -29,6 +30,10 @@ const Header = () => {
                         <Zap className="h-4 w-4 fill-amber-400 text-amber-400" />
                         3/40 credits
                     </span>
+
+                        <UserButton />
+                    </Show>
+                   
                     <Show when="signed-out">
                         <SignInButton mode="modal" />
                         <SignUpButton mode="modal">
@@ -38,6 +43,7 @@ const Header = () => {
                             </button>
                         </SignUpButton>
                     </Show>
+                    
                 </div>
             </nav>
         </header>
