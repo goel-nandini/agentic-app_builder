@@ -9,13 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@arcjet/next": "^1.10.0",
     "@base-ui/react": "^1.7.0",
     "@clerk/nextjs": "^7.7.8",
+    "@cline/sdk": "^0.0.75",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.31.0",
+    "motion": "^13.1.1",
     "next": "16.3.1",
     "next-themes": "^0.4.6",
+    "pg": "^8.23.0",
+    "prisma": "^7.9.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "shadcn": "^4.18.0",
