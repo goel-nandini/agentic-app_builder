@@ -26,10 +26,14 @@ const Header = () => {
                         >
                             Projects
                         </Link>
-                        <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-xs text-white/80 backdrop-blur-md">
+                        <Link
+                            href="/#pricing"
+                            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-xs text-white/80 backdrop-blur-md transition-all hover:bg-white/10 hover:border-amber-400/50 hover:text-white"
+                            title="Upgrade Credits"
+                        >
                             <Zap className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                             3/40 credits
-                        </span>
+                        </Link>
 
                         <UserButton />
                     </Show>

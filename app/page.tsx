@@ -188,11 +188,11 @@ export default function Home() {
       </section>
 
       {/* Pricing Section */}
-      <section className="relative z-10 border-t border-white/10 bg-black/70 py-24">
+      <section id="pricing" className="relative z-10 border-t border-white/10 bg-black/70 py-24 scroll-mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-semibold">Pricing</h2>
-            <p className="mt-2 text-neutral-400">Start with a free trial — upgrade when you’re ready.</p>
+            <SectionHeading gray="Upgrade Your" blue="Model" />
+            <p className="mt-4 text-neutral-400">Start with a free trial — upgrade when you’re ready.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
