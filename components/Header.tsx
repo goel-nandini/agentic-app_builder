@@ -5,7 +5,7 @@ import { Show, SignUpButton, SignInButton, UserButton } from "@clerk/nextjs";
 
 const Header = () => {
     return (
-        <header className="fixed top-0 left-0 right-0 z-50 h-16 w-full border-b border-white/10 bg-black/50 backdrop-blur-md">
+        <header className="fixed top-0 left-0 right-0 z-50 h-16 w-full border-b border-white/10 bg-black/20 backdrop-blur-xl transition-all">
             <nav className="mx-auto flex h-full max-w-7xl items-center justify-between px-4 sm:px-6">
                 <Link href="/" className="flex items-center gap-2">
                     <Image
@@ -18,32 +18,34 @@ const Header = () => {
                     />
                 </Link>
 
-                <div className="flex items-center gap-5">
+                <div className="flex items-center gap-4 sm:gap-5">
                     <Show when="signed-in">
-                         <Link
-                        href={"/projects"}
-                        className="text-[13px] font-medium text-white/60 transition-colors hover:text-white"
-                    >
-                        Projects
-                    </Link>
-                    <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-xs text-white/80">
-                        <Zap className="h-4 w-4 fill-amber-400 text-amber-400" />
-                        3/40 credits
-                    </span>
+                        <Link
+                            href={"/projects"}
+                            className="text-[13px] font-medium text-white/60 transition-colors hover:text-white"
+                        >
+                            Projects
+                        </Link>
+                        <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-xs text-white/80 backdrop-blur-md">
+                            <Zap className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                            3/40 credits
+                        </span>
 
                         <UserButton />
                     </Show>
                    
                     <Show when="signed-out">
-                        <SignInButton mode="modal" />
+                        <SignInButton mode="modal">
+                            <button className="text-xs sm:text-sm font-medium text-white/70 hover:text-white transition-colors cursor-pointer px-3 py-1.5 rounded-full hover:bg-white/5">
+                                Sign In
+                            </button>
+                        </SignInButton>
                         <SignUpButton mode="modal">
-
-                            <button className="bg-purple-700 text-white rounded-full font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 cursor-pointer">
+                            <button className="bg-purple-600 hover:bg-purple-500 text-white rounded-full font-medium text-xs sm:text-sm h-9 px-4 cursor-pointer transition-all shadow-lg shadow-purple-500/20">
                                 Sign Up
                             </button>
                         </SignUpButton>
                     </Show>
-                    
                 </div>
             </nav>
         </header>
