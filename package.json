@@ -12,6 +12,7 @@
     "@arcjet/next": "^1.10.0",
     "@base-ui/react": "^1.7.0",
     "@clerk/nextjs": "^7.7.8",
+    "@clerk/themes": "^2.4.57",
     "@cline/sdk": "^0.0.75",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth, useClerk } from "@clerk/nextjs";
+import { useAuth, useClerk, PricingTable } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HoleBackground } from "@/components/animate-ui/components/backgrounds/hole";
@@ -136,6 +136,38 @@ export default function Home() {
         </div>
       </section>
 
+      {/* How It Works Section */}
+      <section className="relative z-10 border-t border-white/10 bg-[#080808] py-24 sm:py-28">
+        <div className="mx-auto max-w-4xl px-6 sm:px-10">
+          <div className="mb-16 text-center sm:mb-20">
+            <div className="mb-5 flex items-center justify-center gap-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-blue-300/80">
+              <span className="h-px w-8 bg-blue-400/60" />
+              How It Works
+              <span className="h-px w-8 bg-blue-400/60" />
+            </div>
+            <h2 className="font-serif text-4xl leading-[1.08] tracking-tight text-white sm:text-6xl">
+              Four steps
+              <br />
+              <BlueTitle>to a working app.</BlueTitle>
+            </h2>
+          </div>
+
+          <div className="mx-auto max-w-3xl divide-y divide-white/10">
+            {STEPS.map((step) => (
+              <div key={step.number} className="flex gap-5 py-6 first:pt-0 last:pb-0 sm:gap-6 sm:py-7">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.04] text-xs font-medium text-neutral-400">
+                  {step.number}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-white sm:text-lg">{step.label}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-neutral-500 sm:text-[15px]">{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="relative z-10 border-t border-white/10 bg-black/60 py-24 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -163,131 +195,16 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section className="relative z-10 border-t border-white/10 bg-black/80 py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-16">
-            <SectionHeading gray="How It Works In" blue="4 Simple Steps" />
-            <p className="mt-4 text-neutral-400">From prompt to live application in minutes</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {STEPS.map((step, idx) => (
-              <div key={idx} className="rounded-2xl border border-white/10 bg-white/5 p-6 flex flex-col justify-between">
-                <div>
-                  <span className="text-3xl font-extrabold text-blue-400">{step.number}</span>
-                  <h3 className="text-lg font-semibold mt-4 mb-2">
-                    <GrayTitle>{step.label}</GrayTitle>
-                  </h3>
-                  <p className="text-neutral-400 text-sm">{step.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Pricing Section */}
       <section id="pricing" className="relative z-10 border-t border-white/10 bg-black/70 py-24 scroll-mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-12">
-            <SectionHeading gray="Upgrade Your" blue="Model" />
-            <p className="mt-4 text-neutral-400">Start with a free trial — upgrade when you’re ready.</p>
+            <SectionHeading gray="Upgrade Your" blue="Model & Plan" />
+            <p className="mt-4 text-neutral-400">Choose the plan that fits your development needs. Upgrade anytime.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-black/60 to-slate-900/60 p-6 text-center transition-transform transform hover:-translate-y-1 hover:scale-[1.01] hover:shadow-2xl hover:border-blue-500/40">
-              <div className="text-sm text-blue-300 uppercase">Free Trial</div>
-              <div className="text-3xl font-bold mt-4 text-white">Free</div>
-              <div className="text-sm text-blue-200">1 week trial</div>
-              <ul className="mt-4 text-sm text-neutral-300 space-y-2">
-                <li>Full feature access</li>
-                <li>Live preview</li>
-                <li>Export to zip</li>
-              </ul>
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await fetch('/api/billing/subscribe', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ planId: 'free' }),
-                    })
-                    const data = await res.json()
-                    if (data?.url) window.location.href = data.url
-                    else alert(data?.message || 'Billing not configured. Check server logs.')
-                  } catch (err) {
-                    console.error(err)
-                    alert('Unable to start billing flow — check console for details.')
-                  }
-                }}
-                className="mt-6 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-white w-full"
-              >
-                Start Free Trial
-              </button>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-indigo-900/70 p-6 text-center transition-transform transform hover:-translate-y-1 hover:scale-[1.01] hover:shadow-2xl hover:border-blue-500/40">
-              <div className="text-sm text-blue-200 uppercase">Pro</div>
-              <div className="text-3xl font-bold mt-4 text-white">$12<span className="text-sm font-normal text-neutral-300">/month</span></div>
-              <div className="text-sm text-blue-200">For solo creators</div>
-              <ul className="mt-4 text-sm text-neutral-300 space-y-2">
-                <li>Unlimited projects</li>
-                <li>Priority support</li>
-                <li>Export & Deploy</li>
-              </ul>
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await fetch('/api/billing/subscribe', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ planId: 'pro' }),
-                    })
-                    const data = await res.json()
-                    if (data?.url) window.location.href = data.url
-                    else alert(data?.message || 'Billing not configured. Check server logs.')
-                  } catch (err) {
-                    console.error(err)
-                    alert('Unable to start billing flow — check console for details.')
-                  }
-                }}
-                className="mt-6 px-4 py-2 bg-blue-500 hover:bg-blue-400 rounded-xl text-white font-medium w-full"
-              >
-                Choose Pro
-              </button>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-black/60 to-slate-900/60 p-6 text-center transition-transform transform hover:-translate-y-1 hover:scale-[1.01] hover:shadow-2xl hover:border-blue-500/40">
-              <div className="text-sm text-blue-300 uppercase">Team</div>
-              <div className="text-3xl font-bold mt-4 text-white">$99<span className="text-sm font-normal text-neutral-300">/yr</span></div>
-              <div className="text-sm text-blue-200">Best for teams</div>
-              <ul className="mt-4 text-sm text-neutral-300 space-y-2">
-                <li>Team seats & permissions</li>
-                <li>Shared workspaces</li>
-                <li>Dedicated support</li>
-              </ul>
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await fetch('/api/billing/subscribe', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ planId: 'team' }),
-                    })
-                    const data = await res.json()
-                    if (data?.url) window.location.href = data.url
-                    else alert(data?.message || 'Billing not configured. Check server logs.')
-                  } catch (err) {
-                    console.error(err)
-                    alert('Unable to start billing flow — check console for details.')
-                  }
-                }}
-                className="mt-6 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-white w-full"
-              >
-                Contact Sales
-              </button>
-            </div>
+          <div className="flex justify-center items-center w-full min-h-[400px]">
+            <PricingTable />
           </div>
         </div>
       </section>

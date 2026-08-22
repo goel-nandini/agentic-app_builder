@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import Header from "@/components/Header";
 import { ClerkProvider } from "@clerk/nextjs";
+import { dark } from "@clerk/themes";
 
 const lora = Lora({
   subsets: ["latin"],
@@ -35,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider appearance={dark}>
     <html lang="en" suppressHydrationWarning>
       <body className={`${lora.variable} ${dm_sans.variable} font-sans min-h-screen bg-background text-foreground antialiased`}>
         <ThemeProvider
