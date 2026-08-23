@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Sparkles,
@@ -15,6 +15,7 @@ import {
   Crown,
   ArrowUpRight,
   X,
+  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -92,14 +93,44 @@ function BuildStatusBar({ status }: { status: BuildStatus }) {
   );
 }
 
+// ─── Unique Animated Marquee Scroller Ticker ──────────────────
+function GenerationMarqueeScroller({ activePrompt }: { activePrompt: string }) {
+  const tickerItems = [
+    "⚡ FORGE AI ENGINE ACTIVE",
+    `🎯 Intent: "${activePrompt || "Building Application"}"`,
+    "🧠 Architecting Component Logic & State",
+    "🎨 Applying CSS Tokens & Dynamic Styling",
+    "📦 Assembling Live Sandpack Canvas",
+    "✨ Verifying Code Safety & Interactivity",
+  ];
+
+  return (
+    <div className="relative overflow-hidden bg-gradient-to-r from-purple-950/90 via-[#0e071c] to-purple-950/90 border-b border-purple-500/30 py-2 px-4 flex items-center shrink-0 shadow-lg shadow-purple-950/50">
+      {/* Top glowing animated pulse bar */}
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-500 via-pink-500 to-emerald-400 animate-pulse" />
+
+      {/* Marquee ticker wrapper */}
+      <div className="overflow-hidden w-full flex items-center">
+        <div className="animate-marquee flex items-center gap-8 whitespace-nowrap text-xs font-mono">
+          {tickerItems.concat(tickerItems).map((item, idx) => (
+            <div key={idx} className="flex items-center gap-2 text-purple-200/90 font-medium shrink-0">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+              <span>{item}</span>
+              <span className="text-purple-500/40 ml-4 font-bold">•</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Improve With AI Panel ────────────────────────────────────
 function ImproveWithAIPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="mx-3 mb-3 rounded-xl border border-purple-500/25 bg-gradient-to-br from-purple-950/40 via-[#0e0a1a] to-[#0a0a0f] p-3.5 relative overflow-hidden shrink-0">
-      {/* Glow */}
       <div className="absolute -top-6 -right-6 w-24 h-24 bg-purple-600/20 rounded-full blur-2xl pointer-events-none" />
 
-      {/* Close */}
       <button
         onClick={onClose}
         className="absolute top-2 right-2 text-neutral-500 hover:text-white transition-colors"
@@ -107,7 +138,6 @@ function ImproveWithAIPanel({ onClose }: { onClose: () => void }) {
         <X className="w-3.5 h-3.5" />
       </button>
 
-      {/* Header */}
       <div className="flex items-center gap-2 mb-2.5">
         <div className="h-7 w-7 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
           <Crown className="w-3.5 h-3.5 text-purple-400" />
@@ -118,7 +148,6 @@ function ImproveWithAIPanel({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {/* Feature list */}
       <ul className="space-y-1.5 mb-3">
         {[
           "GPT-4o & Claude Sonnet 4 models",
@@ -133,7 +162,6 @@ function ImproveWithAIPanel({ onClose }: { onClose: () => void }) {
         ))}
       </ul>
 
-      {/* CTA */}
       <Link href="/#pricing" className="block">
         <Button
           size="sm"
@@ -157,6 +185,51 @@ export default function WorkspaceClient() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [buildStatus, setBuildStatus] = useState<BuildStatus>("initializing");
   const [showImprovePanel, setShowImprovePanel] = useState(true);
+  const [activePromptText, setActivePromptText] = useState(initialPrompt);
+
+  const [sandpackFiles, setSandpackFiles] = useState<Record<string, string>>({
+    "/App.tsx": `import React, { useState } from "react";
+import "./styles.css";
+
+export default function App() {
+  const [tasks, setTasks] = useState([
+    { id: 1, title: "Design UI Architecture", status: "Done" },
+    { id: 2, title: "Connect Supabase Database", status: "In Progress" },
+    { id: 3, title: "Deploy AI Workspace Canvas", status: "Todo" },
+  ]);
+
+  return (
+    <div className="container">
+      <header className="header">
+        <div className="logo">⚡ AI Generated App</div>
+        <p>Built live with Forge AI & Gemini 3.6 Flash</p>
+      </header>
+
+      <div className="grid">
+        {tasks.map((task) => (
+          <div key={task.id} className="card">
+            <h3>{task.title}</h3>
+            <span className={\`badge \${task.status.toLowerCase().replace(" ", "-")}\`}>
+              {task.status}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}`,
+    "/styles.css": `* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background-color: #09090b; color: #f4f4f5; padding: 2rem; }
+.container { max-width: 800px; margin: 0 auto; }
+.header { text-align: center; margin-bottom: 2rem; }
+.logo { font-size: 2rem; font-weight: 800; color: #c084fc; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.card { background: #18181b; border: 1px solid #27272a; padding: 1.25rem; border-radius: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+.badge { align-self: flex-start; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+.badge.done { background: #064e3b; color: #34d399; }
+.badge.in-progress { background: #1e3a8a; color: #60a5fa; }
+.badge.todo { background: #312e81; color: #a78bfa; }`,
+  });
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -168,31 +241,81 @@ export default function WorkspaceClient() {
     {
       id: "2",
       sender: "ai",
-      text: `I'm generating your full-stack AI application for: "${initialPrompt}". I've set up the React Sandpack canvas and state management:`,
+      text: `Starting AI application build for: **"${initialPrompt}"**. Initializing Sandpack canvas and generating component tree...`,
       timestamp: "Just now",
       steps: [
         { title: "Analyzed project prompt & component architecture", status: "completed" },
-        { title: "Generated React components & CSS design system", status: "completed" },
-        { title: "Mounted live Sandpack preview canvas", status: "completed" },
+        { title: "Connected Gemini AI generation engine", status: "completed" },
       ],
-      filesCreated: ["/App.tsx", "/styles.css"],
     },
   ]);
 
-  // Simulate build status progression on mount
-  useEffect(() => {
-    const sequence: BuildStatus[] = ["initializing", "analyzing", "building", "compiling", "ready"];
-    let i = 0;
-    const interval = setInterval(() => {
-      i++;
-      if (i < sequence.length) {
-        setBuildStatus(sequence[i]);
-      } else {
-        clearInterval(interval);
+  const hasFiredInitial = useRef(false);
+
+  // Call Gemini API to generate real code
+  const generateCodeFromAI = async (promptText: string, attachments?: AttachedFile[]) => {
+    const startTime = Date.now();
+    setIsGenerating(true);
+    setActivePromptText(promptText || "Building Application");
+    setBuildStatus("analyzing");
+
+    try {
+      setBuildStatus("building");
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: promptText, attachments }),
+      });
+
+      const data = await res.json();
+
+      // Ensure ticker animation plays for at least 2.2 seconds for great UX
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 2200 - elapsedTime);
+      if (remainingTime > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remainingTime));
       }
-    }, 900);
-    return () => clearInterval(interval);
-  }, []);
+
+      setBuildStatus("compiling");
+
+      if (data.files && Object.keys(data.files).length > 0) {
+        setSandpackFiles(data.files);
+      }
+
+      const generatedFilesList = data.files ? Object.keys(data.files) : ["/App.tsx", "/styles.css"];
+
+      const aiMsg: ChatMessage = {
+        id: Date.now().toString(),
+        sender: "ai",
+        text: data.explanation || `Successfully generated full application for: "${promptText}"`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        steps: data.steps
+          ? data.steps.map((s: string) => ({ title: s, status: "completed" }))
+          : [
+              { title: "Parsed prompt intent & asset context", status: "completed" },
+              { title: "Synthesized React component hierarchy with Gemini Gen AI", status: "completed" },
+              { title: "Updated live Sandpack preview canvas", status: "completed" },
+            ],
+        filesCreated: generatedFilesList,
+      };
+
+      setMessages((prev) => [...prev, aiMsg]);
+      setBuildStatus("ready");
+    } catch (err: any) {
+      console.error("Generation error:", err);
+      setBuildStatus("ready");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Run generation on initial load if prompt is provided
+  useEffect(() => {
+    if (initialPrompt && !hasFiredInitial.current) {
+      hasFiredInitial.current = true;
+      generateCodeFromAI(initialPrompt);
+    }
+  }, [initialPrompt]);
 
   const handleSendMessage = (newPrompt: string, attachments?: AttachedFile[]) => {
     if ((!newPrompt.trim() && (!attachments || attachments.length === 0)) || isGenerating) return;
@@ -206,33 +329,7 @@ export default function WorkspaceClient() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    setIsGenerating(true);
-    setBuildStatus("building");
-
-    setTimeout(() => {
-      setBuildStatus("compiling");
-      setTimeout(() => {
-        const hasAttachments = attachments && attachments.length > 0;
-        const attachmentSummary = hasAttachments
-          ? ` Analyzed ${attachments.length} uploaded asset(s) and applied code changes.`
-          : "";
-
-        const aiMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          sender: "ai",
-          text: `Updated application and generated requested changes for: "${newPrompt || "Uploaded assets"}"${attachmentSummary}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          steps: [
-            { title: "Processed uploaded context assets", status: "completed" },
-            { title: "Updated UI state & component layout", status: "completed" },
-            { title: "Hot-reloaded live Sandpack preview canvas", status: "completed" },
-          ],
-        };
-        setMessages((prev) => [...prev, aiMsg]);
-        setIsGenerating(false);
-        setBuildStatus("ready");
-      }, 800);
-    }, 800);
+    generateCodeFromAI(newPrompt, attachments);
   };
 
   return (
@@ -282,12 +379,14 @@ export default function WorkspaceClient() {
       {/* ── Build Status Bar ───────────────────────────────── */}
       <BuildStatusBar status={buildStatus} />
 
+      {/* ── Unique Marquee Scroller Ticker (Runs during AI Generation) ── */}
+      {isGenerating && <GenerationMarqueeScroller activePrompt={activePromptText} />}
+
       {/* ── Main Dual-Pane Workspace ───────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
 
         {/* LEFT: Chat Panel + Improve with AI */}
         <div className="w-full md:w-[420px] lg:w-[460px] border-r border-white/10 flex flex-col h-full shrink-0">
-          {/* Chat takes all remaining space */}
           <div className="flex-1 overflow-hidden">
             <ChatPanel
               initialPrompt={initialPrompt}
@@ -297,12 +396,10 @@ export default function WorkspaceClient() {
             />
           </div>
 
-          {/* Improve with AI panel (dismissible) */}
           {showImprovePanel && (
             <ImproveWithAIPanel onClose={() => setShowImprovePanel(false)} />
           )}
 
-          {/* Collapsed trigger when dismissed */}
           {!showImprovePanel && (
             <button
               onClick={() => setShowImprovePanel(true)}
@@ -316,7 +413,7 @@ export default function WorkspaceClient() {
         </div>
 
         {/* RIGHT: Code & Live Preview */}
-        <CodePanel />
+        <CodePanel files={sandpackFiles} />
       </div>
     </div>
   );

@@ -137,12 +137,13 @@ body {
 };
 
 export default function CodePanel({ files = DEFAULT_SANDPACK_FILES }: CodePanelProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>("split");
+  const [viewMode, setViewMode] = useState<ViewMode>("preview");
   const [viewport, setViewport] = useState<Viewport>("desktop");
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#09090b] overflow-hidden min-w-0">
       <SandpackProvider
+        key={Object.keys(files).join("-") + Object.values(files).reduce((acc, f) => acc + f.length, 0)}
         template="react-ts"
         theme={nightOwl}
         files={files}
