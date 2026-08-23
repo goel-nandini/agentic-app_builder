@@ -1,16 +1,8 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { clerkMiddleware } from '@clerk/nextjs/server';
 
-const isProtectedRoute = createRouteMatcher([
-  '/main/workspace(.*)',
-  '/main(.*)',
-  '/projects(.*)',
-]);
-
-export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
-    await auth.protect();
-  }
-});
+// clerkMiddleware() makes auth() available in all server components,
+// layouts, and server actions. Auth checks are done per-layout/page.
+export default clerkMiddleware();
 
 export const config = {
   matcher: [
@@ -21,4 +13,4 @@ export const config = {
     // Always run for API routes
     '/(api|trpc)(.*)',
   ],
-};
+};
