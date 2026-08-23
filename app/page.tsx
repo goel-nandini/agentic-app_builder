@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth, useClerk, PricingTable } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import Footer from '@/components/Footer'
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const router = useRouter();
 
   const { isSignedIn } = useAuth();
   const { openSignIn } = useClerk();
@@ -32,12 +34,11 @@ export default function Home() {
     if (!prompt.trim()) return;
 
     if (!isSignedIn) {
-      openSignIn();
+      router.push(`/auth/sign-in?redirect_url=${encodeURIComponent(`/main/workspace?prompt=${encodeURIComponent(prompt)}`)}`);
       return;
     }
 
-    // Generation trigger logic when signed in
-    console.log("Generating app with prompt:", prompt);
+    router.push(`/main/workspace?prompt=${encodeURIComponent(prompt)}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
