@@ -1,7 +1,4 @@
-import { PLANS } from "@/lib/constant";
+import { PLANS } from "@/lib/constants";
 
 export type Plan = keyof typeof PLANS;
-
-
-
 

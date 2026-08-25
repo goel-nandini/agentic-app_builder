@@ -1,232 +1,393 @@
+// WorkspaceClient.tsx
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
-import {
-  Zap,
-  User,
-} from "lucide-react";
-import ChatPanel, { ChatMessage, AttachedFile, MessageStep } from "@/components/ui/chatpanel";
-import CodePanel from "@/components/ui/codepanel";
-import Link from "next/link";
-import { useUser, UserButton } from "@clerk/nextjs";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { ChatPanel } from "./ChatPanel";
+import { CodePanel } from "./CodePanel";
+import { MobileBlocker } from "./MobileBlocker";
+import { MIN_CREDITS_TO_GENERATE } from "@/lib/constants";
+import { toast } from "sonner";
+import type {
+  Message,
+  FileData,
+  StatusStep,
+  WorkspaceData,
+} from "@/types/workspace";
 
-const DEFAULT_STEPS: MessageStep[] = [
-  { title: "Thinking..", status: "in-progress" },
-  { title: "Defining the Objective", status: "pending" },
-  { title: "Developing Visuals and Features", status: "pending" },
-  { title: "Refining Animations Further", status: "pending" },
-  { title: "Implementing Visuals and UX", status: "pending" },
-];
+export type {
+  MessageRole,
+  Message,
+  FileData,
+  StatusStep,
+} from "@/types/workspace";
 
-export default function WorkspaceClient() {
-  const searchParams = useSearchParams();
-  const initialPrompt =
-    searchParams?.get("prompt") || "make a weather tracker app using react and tailwind";
+interface WorkspaceClientProps {
+  initialPrompt: string | null;
+  workspace: WorkspaceData | null;
+  userCredits: number;
+  userId: string;
+  userPlan: string;
+}
 
-  const { user } = useUser();
+function parseMessages(raw: unknown): Message[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (m): m is Message =>
+      typeof m === "object" && m !== null && "role" in m && "content" in m
+  );
+}
+
+function parseFileData(raw: unknown): FileData | null {
+  if (!raw || typeof raw !== "object") return null;
+  const f = raw as Record<string, unknown>;
+  if (!f.files || !f.dependencies) return null;
+  return raw as FileData;
+}
+
+export function WorkspaceClient({
+  initialPrompt,
+  workspace,
+  userCredits,
+  userId,
+  userPlan,
+}: WorkspaceClientProps) {
+  const [workspaceId, setWorkspaceId] = useState<string | null>(
+    workspace?.id ?? null
+  );
+  const [messages, setMessages] = useState<Message[]>(
+    parseMessages(workspace?.messages)
+  );
+  const [fileData, setFileData] = useState<FileData | null>(
+    parseFileData(workspace?.fileData)
+  );
+  const [credits, setCredits] = useState(userCredits);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [statusLog, setStatusLog] = useState<StatusStep[]>([]);
+  const [isImproving, setIsImproving] = useState(false);
 
-  // fileData holds the generated application files & dependencies (Step 4 & Step 8)
-  const [fileData, setFileData] = useState<{
-    files: Record<string, any>;
-    dependencies?: Record<string, string>;
-    title?: string;
-  } | null>(null);
+  // AbortController refs — used to cancel in-flight streams
+  const generateAbortRef = useRef<AbortController | null>(null);
+  const improveAbortRef = useRef<AbortController | null>(null);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const hasFiredInitial = useRef(false);
+  // Refs to avoid stale closures in callbacks
+  const messagesRef = useRef<Message[]>(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
-  // ── Helper to update active AI message steps ─────────────────
-  const updateAiMessageSteps = (aiMsgId: string, activeStepIdx: number, isFinished = false) => {
-    setMessages((prev) =>
-      prev.map((msg) => {
-        if (msg.id !== aiMsgId) return msg;
+  const workspaceIdRef = useRef<string | null>(workspaceId);
+  useEffect(() => {
+    workspaceIdRef.current = workspaceId;
+  }, [workspaceId]);
 
-        const updatedSteps = DEFAULT_STEPS.map((s, idx) => {
-          if (isFinished) return { ...s, status: "completed" as const };
-          if (idx < activeStepIdx) return { ...s, status: "completed" as const };
-          if (idx === activeStepIdx) return { ...s, status: "in-progress" as const };
-          return { ...s, status: "pending" as const };
-        });
+  // fileData ref — so handleImprove never closes over stale fileData
+  // even as file_patch events stream in
+  const fileDataRef = useRef<FileData | null>(fileData);
+  useEffect(() => {
+    fileDataRef.current = fileData;
+  }, [fileData]);
 
-        return { ...msg, steps: updatedSteps };
-      })
+  const pushStep = (label: string) => {
+    setStatusLog((prev) => [
+      ...prev.map((s, i) =>
+        i === prev.length - 1 ? { ...s, status: "done" as const } : s
+      ),
+      { label, status: "running" as const },
+    ]);
+  };
+
+  const completeSteps = () => {
+    setStatusLog((prev) =>
+      prev.map((s, i) =>
+        i === prev.length - 1 ? { ...s, status: "done" as const } : s
+      )
     );
   };
 
-  // ── Direct Gemini Generation via /api/gen-ai-code ───────────
-  const generateCodeFromAI = async (promptText: string, attachments?: AttachedFile[]) => {
-    setIsGenerating(true);
+  const handleGenerate = useCallback(
+    async (prompt: string, imageUrl?: string) => {
+      if (isGenerating) return;
+      if (credits < MIN_CREDITS_TO_GENERATE) return;
 
-    const aiMsgId = `ai_${Date.now()}`;
-    const initialAiMsg: ChatMessage = {
-      id: aiMsgId,
-      sender: "ai",
-      text: "",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      steps: DEFAULT_STEPS,
-    };
-
-    setMessages((prev) => [...prev, initialAiMsg]);
-
-    // Animate steps sequentially in background
-    let currentStep = 0;
-    const stepInterval = setInterval(() => {
-      currentStep++;
-      if (currentStep < DEFAULT_STEPS.length) {
-        updateAiMessageSteps(aiMsgId, currentStep);
-      } else {
-        clearInterval(stepInterval);
-      }
-    }, 600);
-
-    try {
-      console.log("[Generate] Calling /api/gen-ai-code for prompt:", promptText);
-
-      const res = await fetch("/api/gen-ai-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: promptText }),
-      });
-
-      const data = await res.json();
-      clearInterval(stepInterval);
-
-      // Step 4: Verify frontend state
-      console.log("[Generation Complete]");
-      console.log("files:", data.files ? Object.keys(data.files) : []);
-
-      if (data.files && Object.keys(data.files).length > 0) {
-        setFileData({
-          files: data.files,
-          dependencies: data.dependencies,
-          title: data.title,
-        });
-      }
-
-      // Mark all steps as completed and attach generated files
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.id !== aiMsgId) return msg;
-          return {
-            ...msg,
-            text: data.assistantMessage || `Generated application for "${promptText}"`,
-            steps: DEFAULT_STEPS.map((s) => ({ ...s, status: "completed" as const })),
-            filesCreated: data.files ? Object.keys(data.files) : ["/App.tsx", "/styles.css"],
-          };
-        })
-      );
-
-    } catch (err: any) {
-      clearInterval(stepInterval);
-      console.error("[Frontend] Generation error:", err?.message);
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.id !== aiMsgId) return msg;
-          return {
-            ...msg,
-            text: `Generation failed: ${err?.message || "Unknown error"}. Please try again.`,
-            steps: [],
-          };
-        })
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Run generation on initial load if prompt is provided
-  useEffect(() => {
-    if (initialPrompt && !hasFiredInitial.current) {
-      hasFiredInitial.current = true;
-
-      // Add user message
-      const userMsg: ChatMessage = {
-        id: `user_${Date.now()}`,
-        sender: "user",
-        text: initialPrompt,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      const userMessage: Message = {
+        role: "user",
+        content: prompt,
+        ...(imageUrl ? { imageUrl } : {}),
       };
-      setMessages([userMsg]);
 
-      generateCodeFromAI(initialPrompt);
-    }
-  }, [initialPrompt]);
+      const currentMessages = messagesRef.current;
+      const currentWorkspaceId = workspaceIdRef.current;
 
-  const handleSendMessage = (newPrompt: string, attachments?: AttachedFile[]) => {
-    if ((!newPrompt.trim() && (!attachments || attachments.length === 0)) || isGenerating) return;
+      setMessages((prev) => [...prev, userMessage]);
+      setIsGenerating(true);
+      setStatusLog([{ label: "Thinking…", status: "running" }]);
 
-    const userMsg: ChatMessage = {
-      id: `user_${Date.now()}`,
-      sender: "user",
-      text: newPrompt,
-      attachments: attachments,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
+      // Create a fresh AbortController for this request
+      const abortController = new AbortController();
+      generateAbortRef.current = abortController;
 
-    setMessages((prev) => [...prev, userMsg]);
-    generateCodeFromAI(newPrompt, attachments);
-  };
+      try {
+        const conversationHistory = [...currentMessages, userMessage];
+
+        const res = await fetch("/api/gen-ai-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: abortController.signal,
+          body: JSON.stringify({
+            workspaceId: currentWorkspaceId,
+            userId,
+            messages: conversationHistory,
+            fileData: fileDataRef.current,
+          }),
+        });
+
+        if (res.status === 402) {
+          setMessages((prev) => prev.slice(0, -1));
+          return;
+        }
+        if (res.status === 429) {
+          toast.error("Too many requests. Please slow down.");
+          setMessages((prev) => prev.slice(0, -1));
+          return;
+        }
+        if (!res.ok || !res.body) throw new Error("Generation failed");
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+              if (event.type === "status") {
+                pushStep(event.message);
+              } else if (event.type === "done") {
+                completeSteps();
+                setWorkspaceId(event.workspaceId);
+                setFileData(event.fileData);
+                setCredits(event.creditsRemaining);
+                setMessages((prev) => [
+                  ...prev,
+                  { role: "assistant", content: event.assistantMessage },
+                ]);
+                window.history.replaceState(
+                  null,
+                  "",
+                  `/workspace?id=${event.workspaceId}`
+                );
+              } else if (event.type === "error") {
+                throw new Error(event.message);
+              }
+            } catch {
+              // skip malformed SSE lines
+            }
+          }
+        }
+      } catch (err) {
+        // User-initiated stop — silently roll back the user message
+        if (err instanceof Error && err.name === "AbortError") {
+          setMessages((prev) => prev.slice(0, -1));
+          return;
+        }
+        console.error(err);
+        toast.error(
+          err instanceof Error ? err.message : "Something went wrong."
+        );
+        setMessages((prev) => prev.slice(0, -1));
+      } finally {
+        generateAbortRef.current = null;
+        setIsGenerating(false);
+        setStatusLog([]);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [credits, isGenerating, userId]
+    // fileData intentionally omitted — read via fileDataRef
+  );
+
+  const handleImprove = useCallback(
+    async (userRequest: string) => {
+      if (isGenerating || isImproving) return;
+      if (credits < MIN_CREDITS_TO_GENERATE) return;
+      if (!workspaceIdRef.current) return;
+
+      // Read fileData from ref — never stale, never causes recreating this fn
+      const currentFileData = fileDataRef.current;
+      if (!currentFileData) return;
+
+      setIsImproving(true);
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: userRequest },
+        { role: "assistant", content: "" }, // placeholder, updated live
+      ]);
+
+      // Create a fresh AbortController for this request
+      const abortController = new AbortController();
+      improveAbortRef.current = abortController;
+
+      try {
+        const res = await fetch("/api/improve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: abortController.signal,
+          body: JSON.stringify({
+            userId,
+            workspaceId: workspaceIdRef.current,
+            userRequest,
+            fileData: currentFileData,
+          }),
+        });
+
+        if (res.status === 403) {
+          toast.error(
+            "Upgrade to Starter or Pro to use Improve with Forge Agent."
+          );
+          setMessages((prev) => prev.slice(0, -2));
+          return;
+        }
+        if (res.status === 402) {
+          toast.error("Not enough credits.");
+          setMessages((prev) => prev.slice(0, -2));
+          return;
+        }
+        if (!res.ok || !res.body) throw new Error("Improve failed");
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let accumulatedThinking = "";
+
+        // Accumulate patches locally — only apply to state at done.
+        // Applying on every file_patch event would update fileData state,
+        // which feeds into SandpackProvider and can cause remounts mid-stream.
+        const localPatches: Record<string, { code: string }> = {};
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+
+              if (event.type === "thinking") {
+                // Stream agent reasoning into the placeholder assistant message
+                accumulatedThinking += event.text;
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    role: "assistant",
+                    content: accumulatedThinking,
+                  };
+                  return updated;
+                });
+              } else if (event.type === "file_patch") {
+                // Accumulate locally — don't touch state yet
+                localPatches[event.path] = { code: event.code };
+              } else if (event.type === "done") {
+                // Apply all patches at once now that the stream is complete
+                setFileData(event.fileData);
+                setCredits(event.creditsRemaining);
+                // Replace thinking text with clean summary
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    role: "assistant",
+                    content: event.summary,
+                  };
+                  return updated;
+                });
+              } else if (event.type === "error") {
+                throw new Error(event.message);
+              }
+            } catch {
+              // skip malformed SSE lines
+            }
+          }
+        }
+      } catch (err) {
+        // User-initiated stop — silently roll back the user + placeholder messages
+        if (err instanceof Error && err.name === "AbortError") {
+          setMessages((prev) => prev.slice(0, -2));
+          return;
+        }
+        toast.error(err instanceof Error ? err.message : "Improve failed.");
+        setMessages((prev) => prev.slice(0, -2));
+      } finally {
+        improveAbortRef.current = null;
+        setIsImproving(false);
+      }
+    },
+    // fileData intentionally omitted — read via fileDataRef above
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [credits, isGenerating, isImproving, userId]
+  );
+
+  // Cancel whichever stream is currently in-flight
+  const handleStop = useCallback(() => {
+    generateAbortRef.current?.abort();
+    improveAbortRef.current?.abort();
+  }, []);
+
+  const handleFilePatch = useCallback((patches: FileData) => {
+    setFileData(patches);
+  }, []);
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#09090b]">
+    <>
+      {/* Mobile blocker — visible only on small screens */}
+      <div className="md:hidden">
+        <MobileBlocker />
+      </div>
 
-      {/* ── Top Header Bar (Matching SS 2) ───────────────────── */}
-      <header className="h-12 border-b border-neutral-800/80 bg-[#0a0a0d] px-4 flex items-center justify-between shrink-0 select-none">
-        {/* Left: Brand */}
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-white font-bold text-base tracking-tight font-mono hover:opacity-80 transition-opacity">
-            &lt;forge&gt;
-          </Link>
-        </div>
-
-        {/* Right: Projects + Credits + User Avatar */}
-        <div className="flex items-center gap-4">
-          <Link
-            href="/projects"
-            className="text-xs text-neutral-400 hover:text-white font-medium transition-colors"
-          >
-            Projects
-          </Link>
-
-          <div className="flex items-center gap-1.5 bg-neutral-900/90 border border-neutral-800 text-neutral-200 text-xs px-3 py-1 rounded-full font-medium">
-            <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-            <span>24 / 50 credits</span>
-          </div>
-
-          <div className="flex items-center">
-            {user ? (
-              <UserButton />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-neutral-400">
-                <User className="w-4 h-4" />
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* ── Main Two-Panel Workspace ───────────────────────── */}
-      <div className="flex-1 flex overflow-hidden">
-
-        {/* PANEL 1 (LEFT): Chat & Reasoning Steps Panel */}
-        <div className="w-full md:w-[360px] lg:w-[380px] border-r border-neutral-800/80 flex flex-col h-full shrink-0 bg-[#0a0a0d]">
-          <ChatPanel
-            initialPrompt={initialPrompt}
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isGenerating={isGenerating}
-          />
-        </div>
-
-        {/* PANEL 2 (RIGHT): Code & Live Preview Panel */}
-        <CodePanel
-          files={fileData?.files}
-          dependencies={fileData?.dependencies}
+      {/* Workspace — visible only on md+ screens */}
+      <div className="hidden md:flex h-[calc(100vh-3.5rem)] overflow-hidden bg-[#0a0a0a]">
+        <ChatPanel
+          isImproving={isImproving}
+          messages={messages}
           isGenerating={isGenerating}
+          statusLog={statusLog}
+          credits={credits}
+          initialPrompt={initialPrompt}
+          onGenerate={handleGenerate}
+          onStop={handleStop}
+          userId={userId}
+          workspaceId={workspaceId}
+          appTitle={fileData?.title ?? workspace?.title ?? null}
+        />
+        <div className="w-px shrink-0 bg-white/6" />
+        <CodePanel
+          fileData={fileData}
+          isGenerating={isGenerating}
+          statusLog={statusLog}
+          onImprove={handleImprove}
+          onFixError={(error) =>
+            handleGenerate(
+              `There is an error in the preview:\n\n\`\`\`\n${error}\n\`\`\`\n\nPlease fix it.`
+            )
+          }
+          onFilePatch={handleFilePatch}
+          appTitle={fileData?.title ?? workspace?.title ?? null}
+          isImproving={isImproving}
+          isProUser={userPlan === "pro"}
         />
       </div>
-    </div>
+    </>
   );
 }
