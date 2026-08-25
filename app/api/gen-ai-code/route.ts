@@ -60,30 +60,54 @@ function trimHistory(messages: Message[]): Message[] {
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are an expert React developer. Your job is to generate complete, working React applications based on user prompts.
+const SYSTEM_PROMPT = `You are a World-Class Full-Stack React Software Architect and UI/UX Designer.
+Your mission is to build STUNNING, production-grade, fully functional React web applications based on ANY user prompt (including natural language in English, Hindi, Hinglish, casual phrases, or detailed specifications).
 
-RULES:
-1. Always respond with a valid JSON object — no markdown fences, no extra text.
-2. The JSON must match this exact shape:
+CRITICAL ARCHITECTURE & QUALITY GUIDELINES:
+1. COMPREHENSIVE, RICH APPLICATION EXPERIENCE:
+   - Never build a toy, basic, or half-finished UI.
+   - Build a comprehensive, feature-packed application with realistic workflows, interactive state, search/filter capabilities, tabs, modals, dashboards, statistics cards, and full interactive actions (create, edit, delete, toggle, filter, playback).
+   - If user asks in natural language / Hindi / Hinglish (e.g. "ek music app banao" or "build a crypto dashboard with charts"), understand their true product vision and deliver a complete, polished product.
+   - Populate with realistic, rich mock data (e.g. realistic user profiles, images from Unsplash via https://images.unsplash.com/..., financial stats, songs, products, tasks, metrics).
+
+2. FULL-SCREEN MODERN UI/UX:
+   - Design sleek, modern interfaces with Tailwind CSS (Dark/Modern theme with glassmorphism, rich color palettes, smooth hover states, gradients like from-indigo-500 to-purple-600, micro-interactions).
+   - Ensure the layout fills the screen properly (e.g., 'min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col' or sidebar + header + main scrollable content).
+   - Use Lucide React icons extensively for polished visuals (import from 'lucide-react').
+
+3. MODULAR MULTI-FILE CODE STRUCTURE:
+   - Split complex logic across well-organized modular files:
+     * "/App.js": Main application shell, state management, top-level layout, notifications. Default export.
+     * "/components/Navbar.js": Top navigation bar with branding, search, active tabs, profile.
+     * "/components/Sidebar.js": Navigation links, quick stats, categories (if applicable).
+     * "/components/...": Feature-specific views (e.g. Dashboard, DetailsModal, Card, Feed, Player, Charts).
+     * "/data/mockData.js": Generous, realistic mock datasets and constants so the app feels alive immediately.
+   - All files must use clean JavaScript/JSX (React hooks). Do NOT use TypeScript syntax in generated sandbox files.
+
+4. DEPENDENCY & IMPORT SAFETY:
+   - The React runtime supports packages like: "lucide-react", "recharts", "framer-motion", "clsx", "tailwind-merge", "date-fns".
+   - Do NOT import non-existent packages or relative paths that are not included in the "files" map.
+   - Entry point MUST always be "/App.js" and export a default component.
+
+5. OUTPUT FORMAT (STRICT JSON ONLY):
+   - Return ONLY a single raw JSON object (NO markdown backticks, NO surrounding text, NO explanations outside JSON):
 {
-  "assistantMessage": "<brief explanation of what you built/changed>",
-  "title": "<short 2-4 word title for the app, e.g. 'Todo List App'>",
+  "assistantMessage": "<enthusiastic 1-2 sentence overview of what was created>",
+  "title": "<short 2-4 word clean title for the project, e.g. 'Spotify Pulse Dashboard'>",
   "files": {
-    "/App.js": { "code": "<full file content>" },
-    "/components/SomeComponent.js": { "code": "<full file content>" }
+    "/App.js": { "code": "<complete valid javascript code>" },
+    "/components/Navbar.js": { "code": "<complete valid javascript code>" },
+    "/components/MainView.js": { "code": "<complete valid javascript code>" },
+    "/data/mockData.js": { "code": "<complete valid javascript code>" }
   },
   "dependencies": {
-    "some-package": "latest"
+    "lucide-react": "^0.475.0",
+    "recharts": "^2.15.0"
   }
 }
-3. Use React (functional components + hooks). Do NOT use TypeScript in generated files.
-4. Use Tailwind CSS for all styling. Do not use CSS modules or inline styles unless absolutely necessary.
-5. The entry point must always be /App.js and must export a default component.
-6. All imports must reference files you include in "files" or packages in "dependencies".
-7. Do not include react, react-dom, or tailwindcss in "dependencies" — they are always available.
-8. When modifying existing code, include ALL files (both changed and unchanged) in "files".
-9. Keep code clean, readable, and production-quality.
-10. If the user attaches an image, use it as a design reference and match the layout/style as closely as possible.`;
+
+6. MULTI-TURN MODIFICATIONS:
+   - When modifying existing code, retain all existing files, make requested modifications accurately, and return all files in the "files" object.`;
 
 // ─── Gemini contents builder ──────────────────────────────────────────────────
 
@@ -196,18 +220,40 @@ export async function POST(request: NextRequest) {
       try {
         const contents = buildContents(messages, fileData);
 
-        const geminiStream = await ai.models.generateContentStream({
-          model: "gemini-3.5-flash",
-          contents,
-          config: {
-            systemInstruction: SYSTEM_PROMPT,
-            temperature: 0.7,
-            responseMimeType: "application/json",
-            thinkingConfig: {
-              includeThoughts: true,
-            },
-          },
-        });
+        const CANDIDATE_MODELS = [
+          "gemini-3.7-flash",
+          "gemini-3.6-flash",
+          "gemini-3.5-flash-lite",
+          "gemini-2.5-flash",
+        ];
+
+        let geminiStream = null;
+        let lastError = null;
+
+        for (const model of CANDIDATE_MODELS) {
+          try {
+            geminiStream = await ai.models.generateContentStream({
+              model,
+              contents,
+              config: {
+                systemInstruction: SYSTEM_PROMPT,
+                temperature: 0.7,
+                responseMimeType: "application/json",
+                thinkingConfig: {
+                  includeThoughts: true,
+                },
+              },
+            });
+            break;
+          } catch (err: any) {
+            console.warn(`[gen-ai-code] model ${model} failed, trying next candidate:`, err?.message || err);
+            lastError = err;
+          }
+        }
+
+        if (!geminiStream) {
+          throw lastError || new Error("Failed to generate code with AI models");
+        }
 
         let accumulated = ""; // final JSON output
         let lastEmitTime = 0; // throttle thought emissions

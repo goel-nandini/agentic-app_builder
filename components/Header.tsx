@@ -36,13 +36,10 @@ export default async function Header() {
 
                         {user && (
                             <PricingModal>
-                                <button
-                                    type="button"
-                                    className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-xs text-white/70 hover:bg-white/10 transition-colors cursor-pointer"
-                                >
+                                <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-xs text-white/70 hover:bg-white/10 transition-colors cursor-pointer">
                                     <Zap className="h-3 w-3 fill-amber-400 text-amber-400" />
                                     <span>{user.credits} credits</span>
-                                </button>
+                                </span>
                             </PricingModal>
                         )}
 

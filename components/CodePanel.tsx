@@ -412,7 +412,7 @@ root.render(<React.StrictMode><App /></React.StrictMode>);`
 
         <SandpackLayout
           style={{
-            height: "100vh",
+            height: "100%",
             border: "none",
             borderRadius: 0,
             background: "transparent",
@@ -424,7 +424,7 @@ root.render(<React.StrictMode><App /></React.StrictMode>);`
             className="mt-0 h-full w-full"
           >
             <SandpackPreview
-              style={{ height: "89%" }}
+              style={{ height: "100%", width: "100%" }}
               showOpenInCodeSandbox={false}
             />
           </TabsContent>
@@ -436,13 +436,13 @@ root.render(<React.StrictMode><App /></React.StrictMode>);`
           >
             <SandpackFileExplorer
               style={{
-                height: "90%",
-                width: "180px",
+                height: "100%",
+                width: "200px",
                 borderRight: "0.5px solid rgba(255,255,255,0.08)",
               }}
             />
             <SandpackCodeEditor
-              style={{ height: "90%", flex: 1 }}
+              style={{ height: "100%", flex: 1 }}
               showTabs
               showLineNumbers
               showInlineErrors

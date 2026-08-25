@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
       const agent = new Agent({
         providerId: "gemini",
-        modelId: "gemini-3.5-flash",
+        modelId: "gemini-3.5-flash-lite",
         apiKey: process.env.GEMINI_API_KEY!,
         maxIterations: 8,
         systemPrompt: `You are an expert React developer improving a live browser preview app.
