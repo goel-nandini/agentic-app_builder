@@ -60,7 +60,7 @@ export const PRICING_PLANS = [
       "Live preview",
       "Export to zip",
       "Image uploads",
-      "Access to Forge Pro Agent",
+      "Access to Nodex Pro Agent",
     ],
   },
 ] as const;

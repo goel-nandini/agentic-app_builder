@@ -22,11 +22,8 @@ const dm_sans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Forge - AI App Builder",
-  description: "Build AI apps in minutes",
-  icons: {
-    icon: "/logo-short.jpeg",
-  },
+  title: "Nodex - Next-Gen AI App Builder",
+  description: "Build full-stack React web apps from a single prompt with Nodex AI",
 };
 
 export default function RootLayout({
@@ -36,8 +33,8 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider appearance={dark}>
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${lora.variable} ${dm_sans.variable} font-sans min-h-screen bg-background text-foreground antialiased`}>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className={`${lora.variable} ${dm_sans.variable} font-sans min-h-screen bg-[#070709] text-white antialiased`}>
         <Header />
         <main className="pt-16">
           {children}

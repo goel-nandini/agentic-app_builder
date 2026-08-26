@@ -20,9 +20,13 @@ import {
   Bot,
   Loader2,
   ArrowUp,
+  Laptop,
+  Tablet,
+  Smartphone,
 } from "lucide-react";
 import { RingLoader } from "react-spinners";
 import JSZip from "jszip";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PricingModal } from "@/components/PricingModal";
@@ -125,6 +129,7 @@ function SandpackInner({
   const [isExporting, setIsExporting] = useState(false);
   const [improveInput, setImproveInput] = useState("");
   const [showImproveInput, setShowImproveInput] = useState(false);
+  const [viewportMode, setViewportMode] = useState<"laptop" | "tablet" | "mobile">("laptop");
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
   // Push file content updates into Sandpack without remounting.
@@ -204,7 +209,7 @@ function SandpackInner({
       const zip = new JSZip();
 
       const packageJson = {
-        name: "forge-app",
+        name: "nodex-app",
         version: "1.0.0",
         private: true,
         dependencies: {
@@ -231,7 +236,7 @@ function SandpackInner({
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Forge App</title>
+    <title>Nodex App</title>
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body>
@@ -263,7 +268,7 @@ root.render(<React.StrictMode><App /></React.StrictMode>);`
 
       zip.file(
         "README.md",
-        `# Forge App\n\nGenerated with [Forge](https://forge.app).\n\n## Getting started\n\n\`\`\`bash\nnpm install\nnpm start\n\`\`\``
+        `# Nodex App\n\nGenerated with [Nodex](https://nodex.ai).\n\n## Getting started\n\n\`\`\`bash\nnpm install\nnpm start\n\`\`\``
       );
 
       const blob = await zip.generateAsync({ type: "blob" });
@@ -275,7 +280,7 @@ root.render(<React.StrictMode><App /></React.StrictMode>);`
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, "-")
             .replace(/^-|-$/g, "")}.zip`
-        : "forge-app.zip";
+        : "nodex-app.zip";
       a.download = zipName;
       a.click();
       URL.revokeObjectURL(url);
@@ -296,20 +301,70 @@ root.render(<React.StrictMode><App /></React.StrictMode>);`
       className="flex h-full flex-col gap-0"
     >
       {/* Tabs + Actions bar */}
-      <div className="flex items-center justify-between border-b border-white/6 px-2">
-        <TabsList
-          variant="line"
-          className="h-auto gap-0 rounded-none bg-transparent p-0"
-        >
-          <TabsTrigger className="border-b-2 pt-2" value="code">
-            <Code2 className="h-3.5 w-3.5" />
-            Code
-          </TabsTrigger>
-          <TabsTrigger className="border-b-2 pt-2" value="preview">
-            <Eye className="h-3.5 w-3.5" />
-            Preview
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex items-center justify-between border-b border-white/6 px-2 py-1">
+        <div className="flex items-center gap-3">
+          <TabsList
+            variant="line"
+            className="h-auto gap-0 rounded-none bg-transparent p-0"
+          >
+            <TabsTrigger className="border-b-2 pt-2" value="code">
+              <Code2 className="h-3.5 w-3.5" />
+              Code
+            </TabsTrigger>
+            <TabsTrigger className="border-b-2 pt-2" value="preview">
+              <Eye className="h-3.5 w-3.5" />
+              Preview
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ── Device Viewport Switcher (Laptop / Tablet / Mobile) ── */}
+          {activeTab === "preview" && (
+            <div className="flex items-center rounded-lg border border-white/8 bg-white/4 p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewportMode("laptop")}
+                title="Laptop / Desktop (Full Screen)"
+                className={cn(
+                  "flex h-6 items-center gap-1 rounded-md px-2 text-xs transition-all cursor-pointer",
+                  viewportMode === "laptop"
+                    ? "bg-white/15 text-white shadow-xs font-medium"
+                    : "text-white/40 hover:text-white/80"
+                )}
+              >
+                <Laptop className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[11px]">Laptop</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewportMode("tablet")}
+                title="Tablet View (768px)"
+                className={cn(
+                  "flex h-6 items-center gap-1 rounded-md px-2 text-xs transition-all cursor-pointer",
+                  viewportMode === "tablet"
+                    ? "bg-white/15 text-white shadow-xs font-medium"
+                    : "text-white/40 hover:text-white/80"
+                )}
+              >
+                <Tablet className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[11px]">Tablet</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewportMode("mobile")}
+                title="Mobile View (390px)"
+                className={cn(
+                  "flex h-6 items-center gap-1 rounded-md px-2 text-xs transition-all cursor-pointer",
+                  viewportMode === "mobile"
+                    ? "bg-white/15 text-white shadow-xs font-medium"
+                    : "text-white/40 hover:text-white/80"
+                )}
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[11px]">Mobile</span>
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-1.5">
           {/* ── Improve button ── */}
@@ -421,12 +476,34 @@ root.render(<React.StrictMode><App /></React.StrictMode>);`
           <TabsContent
             value="preview"
             keepMounted
-            className="mt-0 h-full w-full"
+            className="mt-0 h-full w-full flex items-center justify-center overflow-hidden bg-[#070709] p-0"
           >
-            <SandpackPreview
-              style={{ height: "100%", width: "100%" }}
-              showOpenInCodeSandbox={false}
-            />
+            <div
+              className={cn(
+                "transition-all duration-300 flex flex-col items-center justify-center",
+                viewportMode === "laptop" && "w-full h-full rounded-none border-0 p-0",
+                viewportMode === "tablet" &&
+                  "w-[768px] max-w-[95%] my-auto rounded-2xl border border-white/15 shadow-[0_0_50px_rgba(0,0,0,0.9)] overflow-hidden bg-[#0d0d12] p-2",
+                viewportMode === "mobile" &&
+                  "w-[390px] max-w-[92%] my-auto rounded-[2.5rem] border-4 border-white/20 shadow-[0_0_60px_rgba(0,0,0,0.95)] overflow-hidden bg-[#0d0d12] p-2"
+              )}
+              style={{
+                height: viewportMode === "laptop" ? "100%" : "calc(100% - 20px)",
+              }}
+            >
+              {viewportMode === "mobile" && (
+                <div className="mb-2 flex h-4 w-full items-center justify-center shrink-0">
+                  <div className="h-1.5 w-24 rounded-full bg-white/20" />
+                </div>
+              )}
+              <div className="h-full w-full overflow-hidden rounded-lg bg-[#09090b]">
+                <SandpackPreview
+                  style={{ height: "100%", width: "100%" }}
+                  showOpenInCodeSandbox={false}
+                  showRefreshButton={true}
+                />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent
@@ -514,7 +591,7 @@ export function CodePanel({
   const filePathKey = Object.keys(files).sort().join("|");
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex flex-1 flex-col h-full min-h-0 overflow-hidden">
       <SandpackProvider
         key={filePathKey}
         template="react"
@@ -522,7 +599,10 @@ export function CodePanel({
         files={files}
         customSetup={{ dependencies }}
         options={{
-          externalResources: ["https://cdn.tailwindcss.com"],
+          externalResources: [
+            "https://cdn.tailwindcss.com",
+            "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap",
+          ],
           recompileMode: "delayed",
           recompileDelay: 500,
         }}

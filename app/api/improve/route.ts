@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { Agent, createTool } from "@cline/sdk";
 import { z } from "zod";
 import { db } from "@/lib/prisma";
+import { checkUser } from "@/lib/checkUser";
 import { CREDIT_COST_PER_GENERATION } from "@/lib/constants";
 import type { FileData } from "@/types/workspace";
 
@@ -27,12 +28,17 @@ export async function POST(request: NextRequest) {
     fileData: FileData;
   };
 
-  // ── Auth + credit check ────────────────────────────────────────────────────
-
-  const user = await db.user.findUnique({
-    where: { id: userId, clerkId },
+  let user = await db.user.findUnique({
+    where: { clerkId },
     select: { id: true, credits: true, plan: true },
   });
+
+  if (!user) {
+    const synced = await checkUser();
+    if (synced) {
+      user = { id: synced.id, credits: synced.credits, plan: synced.plan };
+    }
+  }
 
   if (!user)
     return Response.json({ message: "User not found" }, { status: 404 });
@@ -43,6 +49,8 @@ export async function POST(request: NextRequest) {
 
   if (user.credits < CREDIT_COST_PER_GENERATION)
     return Response.json({ message: "Insufficient credits" }, { status: 402 });
+
+  const currentUserId = user.id;
 
   // ── Build the agent ────────────────────────────────────────────────────────
 
@@ -118,7 +126,7 @@ export async function POST(request: NextRequest) {
 
       const agent = new Agent({
         providerId: "gemini",
-        modelId: "gemini-3.5-flash-lite",
+        modelId: "gemini-3.1-flash-lite",
         apiKey: process.env.GEMINI_API_KEY!,
         maxIterations: 8,
         systemPrompt: `You are an expert React developer improving a live browser preview app.
@@ -179,6 +187,8 @@ RULES:
         });
 
         // ── Run the agent ─────────────────────────────────────────────────
+        const improveStart = Date.now();
+        console.log(`[GENERATION] Cline agent improve started for workspace ${workspaceId}`);
         enqueue(sseEvent("status", { message: "Cline agent starting…" }));
 
         const result = await agent.run(userRequest);
@@ -186,6 +196,9 @@ RULES:
         if (result.status === "failed") {
           throw new Error(result.error?.message ?? "Agent run failed");
         }
+
+        const improveDuration = Date.now() - improveStart;
+        console.log(`[GENERATION] Cline agent improve completed in ${improveDuration}ms`);
 
         // ── Deduct credit + save to DB ────────────────────────────────────
 
@@ -195,21 +208,43 @@ RULES:
           title: fileData.title,
         };
 
-        await db.$transaction([
-          db.workspace.update({
-            where: { id: workspaceId, userId },
-            data: { fileData: newFileData as never },
-          }),
-          db.user.update({
-            where: { id: userId },
-            data: { credits: { decrement: CREDIT_COST_PER_GENERATION } },
-          }),
-        ]);
+        const dbStart = Date.now();
+        console.log(`[DATABASE] Save started for improve workspace ${workspaceId}`);
 
-        const updatedUser = await db.user.findUnique({
-          where: { id: userId },
-          select: { credits: true },
-        });
+        let updatedUser;
+        try {
+          await db.workspace.update({
+            where: { id: workspaceId },
+            data: { fileData: newFileData as never },
+          });
+
+          updatedUser = await db.user.update({
+            where: { id: currentUserId },
+            data: { credits: { decrement: CREDIT_COST_PER_GENERATION } },
+            select: { credits: true },
+          });
+
+          const dbDuration = Date.now() - dbStart;
+          console.log(`[DATABASE] Save completed in ${dbDuration}ms`);
+        } catch (dbErr: any) {
+          const isTimeout =
+            dbErr?.code === "P2028" ||
+            (typeof dbErr?.message === "string" && dbErr.message.includes("P2028"));
+          if (isTimeout) {
+            console.error("[DATABASE] P2028 transaction timeout in improve:", dbErr);
+          } else {
+            console.error("[DATABASE] Save failed in improve:", dbErr);
+          }
+          enqueue(
+            sseEvent("error", {
+              message: isTimeout
+                ? "Database save timed out. Please try again."
+                : "Improvements generated, but saving the workspace failed.",
+            })
+          );
+          controller.close();
+          return;
+        }
 
         // ── Final done event ──────────────────────────────────────────────
 

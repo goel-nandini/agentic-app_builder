@@ -105,3 +105,37 @@
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
+/* ─── Sandpack Full-Height & Viewport Screen Fit ────────────────────────────── */
+.sp-wrapper,
+.sp-layout,
+.sp-stack,
+.sp-preview,
+.sp-preview-container,
+.sp-preview-iframe,
+.sp-code-editor,
+.sp-pane {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.sp-preview-iframe {
+  border: none !important;
+  border-radius: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.sp-tabs {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: #0d0d0d !important;
+}
+
+.sp-cm {
+  height: 100% !important;
+}

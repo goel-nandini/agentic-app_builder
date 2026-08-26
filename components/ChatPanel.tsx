@@ -18,6 +18,7 @@ import { PricingModal } from "@/components/PricingModal";
 import type { Message, StatusStep } from "@/types/workspace";
 import { createClient } from "@supabase/supabase-js";
 import { BlueTitle } from "./Reusables";
+import { NodexLogo } from "@/components/NodexLogo";
 import Image from "next/image";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -220,20 +221,16 @@ export function ChatPanel({
                   </div>
                 ) : (
                   <div className="flex items-start gap-2">
-                    <Image
-                      src="/logo-short.jpeg"
-                      alt="Forge"
-                      width={24}
-                      height={24}
-                      className="mt-0.5 h-6 w-6 shrink-0 rounded-md"
-                    />
+                    <div className="mt-0.5 shrink-0">
+                      <NodexLogo size="sm" showText={false} />
+                    </div>
                     <div className="min-w-0 rounded-2xl rounded-tl-sm bg-white/5 px-3.5 py-2.5">
                       {isLiveStream && !msg.content ? (
                         // Empty placeholder — show Cline thinking indicator
                         <div className="flex items-center gap-2">
                           <Wand2 className="h-3 w-3 shrink-0 text-blue-400/60 animate-pulse" />
                           <span className="text-[12px] text-white/30 animate-pulse">
-                            Cline is thinking…
+                            Nodex is thinking…
                           </span>
                         </div>
                       ) : isLiveStream && msg.content ? (
@@ -267,13 +264,9 @@ export function ChatPanel({
           {/* Live status steps — only shown during normal generation */}
           {isGenerating && (
             <div className="flex items-start gap-2">
-              <Image
-                src="/logo-short.jpeg"
-                alt="Forge"
-                width={24}
-                height={24}
-                className="mt-0.5 h-6 w-6 shrink-0 rounded-md"
-              />
+              <div className="mt-0.5 shrink-0">
+                <NodexLogo size="sm" showText={false} />
+              </div>
               <div className="rounded-2xl rounded-tl-sm bg-white/5 px-3.5 py-3">
                 <div className="space-y-2">
                   {statusLog.map((step, i) => (

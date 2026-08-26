@@ -1,67 +1,83 @@
-import { Sparkles, Zap, Code2, Eye, Package, ImageIcon } from "lucide-react";
+import {
+  Sparkles,
+  Zap,
+  Code2,
+  Eye,
+  Package,
+  ImageIcon,
+  Laptop,
+  Layers,
+  Wand2,
+} from "lucide-react";
 
 export const SUGGESTIONS = [
   "A Spotify stats dashboard with charts",
   "A kanban board with drag and drop",
-  "A weather app with animated icons",
-  "A personal finance tracker",
-  "A recipe finder with filters",
-  "A pomodoro timer with tasks",
+  "A crypto portfolio tracker with live charts",
+  "A personal finance tracker with categories",
+  "A SaaS CRM with analytics and customer table",
+  "A modern fitness workout planner with streaks",
 ];
 
 export const FEATURES = [
   {
     icon: Zap,
-    label: "Instant generation",
-    desc: "Describe your app in plain English. Gemini 3.6 Flash returns production-ready React + Tailwind code in seconds.",
+    label: "Instant Neural Generation",
+    desc: "Describe your app in natural English, Hindi, or Hinglish. Nodex AI architects complete multi-file React apps in seconds.",
+    tag: "Gemini AI",
   },
   {
-    icon: Eye,
-    label: "Live preview",
-    desc: "Your app renders instantly in the browser via Sandpack. No install, no build step — just a working preview.",
+    icon: Laptop,
+    label: "3-in-1 Multi-Device Preview",
+    desc: "Seamlessly test your generated apps across Laptop (full screen), Tablet (768px), and Smartphone (390px) viewports with zero setup.",
+    tag: "Responsive",
   },
   {
-    icon: Code2,
-    label: "Full source code",
-    desc: "Browse every generated file. Edit directly in the built-in editor and watch the preview update in real time.",
+    icon: Layers,
+    label: "Modular Multi-File Code",
+    desc: "Clean component architecture with /App.js, /components, and /data/mockData.js — not a messy single-file script.",
+    tag: "Architecture",
   },
   {
     icon: Package,
-    label: "Smart packages",
-    desc: "AI picks the right npm packages. We validate them against the npm registry and filter hallucinated ones silently.",
+    label: "Auto-Resolved Dependencies",
+    desc: "Lucide icons, Recharts, Framer Motion, and Tailwind CSS work right out of the box with zero npm install delays.",
+    tag: "Zero Config",
   },
   {
-    icon: Sparkles,
-    label: "AI error recovery",
-    desc: "When your preview throws an error, a banner appears. One click sends the error to AI and auto-fixes the code.",
+    icon: Wand2,
+    label: "Self-Healing Error Recovery",
+    desc: "If any preview code produces a runtime error, click 'Fix with AI' and Nodex autonomously diagnoses and patches the bug.",
+    tag: "Auto-Fix",
   },
   {
     icon: ImageIcon,
-    label: "Image-aware prompts",
-    desc: "Attach screenshots or mockups to your prompt. The AI reads them and generates code that matches your design.",
+    label: "Visual Image-to-Code",
+    desc: "Attach UI screenshots or Figma mockups. Nodex extracts color palettes, layouts, and typography to replicate the design.",
+    tag: "Vision AI",
   },
 ];
 
 export const STEPS = [
   {
     number: "01",
-    label: "Describe your app",
-    desc: "Type a prompt or pick a suggestion. Add screenshots for extra context.",
+    label: "Describe Your Vision",
+    desc: "Type a natural prompt, pick a starter suggestion, or upload UI mockups. No coding jargon required.",
   },
   {
     number: "02",
-    label: "AI generates code",
-    desc: "Gemini writes React + Tailwind components, picks dependencies, and structures your files.",
+    label: "AI Neural Synthesis",
+    desc: "Nodex structures your components, styles with Tailwind CSS, builds realistic mock datasets, and wires interactive state.",
   },
   {
     number: "03",
-    label: "Preview & refine",
-    desc: "See your app live instantly. Keep chatting to iterate — AI remembers the full conversation.",
+    label: "Multi-Device Live Testing",
+    desc: "Interact with live buttons, charts, and tabs on Laptop, Tablet, and Mobile preview screens in real time.",
   },
   {
     number: "04",
-    label: "Export and deploy",
-    desc: "Open in CodeSandbox, copy the source, and deploy to a live URL.",
+    label: "Iterate with Chat & Export",
+    desc: "Ask the AI agent to tweak designs or add features, then download clean ZIP files ready for deployment.",
   },
 ];
 

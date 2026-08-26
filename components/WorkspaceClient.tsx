@@ -65,6 +65,10 @@ export function WorkspaceClient({
   const [statusLog, setStatusLog] = useState<StatusStep[]>([]);
   const [isImproving, setIsImproving] = useState(false);
 
+  // Synchronous in-flight guards to prevent duplicate concurrent triggers
+  const isGeneratingRef = useRef(false);
+  const isImprovingRef = useRef(false);
+
   // AbortController refs — used to cancel in-flight streams
   const generateAbortRef = useRef<AbortController | null>(null);
   const improveAbortRef = useRef<AbortController | null>(null);
@@ -106,8 +110,14 @@ export function WorkspaceClient({
 
   const handleGenerate = useCallback(
     async (prompt: string, imageUrl?: string) => {
-      if (isGenerating) return;
+      if (isGeneratingRef.current || generateAbortRef.current) {
+        console.warn("[GENERATION] Generation already in progress, skipping duplicate request.");
+        return;
+      }
       if (credits < MIN_CREDITS_TO_GENERATE) return;
+
+      isGeneratingRef.current = true;
+      setIsGenerating(true);
 
       const userMessage: Message = {
         role: "user",
@@ -119,7 +129,6 @@ export function WorkspaceClient({
       const currentWorkspaceId = workspaceIdRef.current;
 
       setMessages((prev) => [...prev, userMessage]);
-      setIsGenerating(true);
       setStatusLog([{ label: "Thinking…", status: "running" }]);
 
       // Create a fresh AbortController for this request
@@ -204,6 +213,7 @@ export function WorkspaceClient({
         );
         setMessages((prev) => prev.slice(0, -1));
       } finally {
+        isGeneratingRef.current = false;
         generateAbortRef.current = null;
         setIsGenerating(false);
         setStatusLog([]);
@@ -216,7 +226,10 @@ export function WorkspaceClient({
 
   const handleImprove = useCallback(
     async (userRequest: string) => {
-      if (isGenerating || isImproving) return;
+      if (isGeneratingRef.current || isImprovingRef.current || improveAbortRef.current) {
+        console.warn("[IMPROVE] Operation already in progress, skipping duplicate request.");
+        return;
+      }
       if (credits < MIN_CREDITS_TO_GENERATE) return;
       if (!workspaceIdRef.current) return;
 
@@ -224,6 +237,7 @@ export function WorkspaceClient({
       const currentFileData = fileDataRef.current;
       if (!currentFileData) return;
 
+      isImprovingRef.current = true;
       setIsImproving(true);
 
       setMessages((prev) => [
@@ -251,7 +265,7 @@ export function WorkspaceClient({
 
         if (res.status === 403) {
           toast.error(
-            "Upgrade to Starter or Pro to use Improve with Forge Agent."
+            "Upgrade to Starter or Pro to use Improve with Nodex Agent."
           );
           setMessages((prev) => prev.slice(0, -2));
           return;
@@ -330,6 +344,7 @@ export function WorkspaceClient({
         toast.error(err instanceof Error ? err.message : "Improve failed.");
         setMessages((prev) => prev.slice(0, -2));
       } finally {
+        isImprovingRef.current = false;
         improveAbortRef.current = null;
         setIsImproving(false);
       }
@@ -357,7 +372,7 @@ export function WorkspaceClient({
       </div>
 
       {/* Workspace — visible only on md+ screens */}
-      <div className="hidden md:flex h-[calc(100vh-3.5rem)] overflow-hidden bg-[#0a0a0a]">
+      <div className="hidden md:flex h-[calc(100vh-4rem)] overflow-hidden bg-[#0a0a0a]">
         <ChatPanel
           isImproving={isImproving}
           messages={messages}
