@@ -259,3 +259,93 @@ export interface AgentToolDecision {
   reasoning: string;
   toolCalls: AgentToolCall[];
 }
+
+// ─── Memory, Design History & Quality Tracking Types (Phase 5) ────────────────
+
+export interface GenerationReport {
+  generationId: string;
+  timestamp: string;
+  userPrompt: string; // Sanitized (no secrets/passwords)
+  appName: string;
+  appType: string;
+  coreFeatures: string[];
+  selectedDesignDNA: {
+    conceptName: string;
+    visualStyle: string;
+    designMood: string;
+    colorPalette: {
+      primary: string;
+      secondary: string;
+      accent: string;
+      background: string;
+    };
+    layoutStrategy: string;
+  };
+  rejectedConcepts: Array<{
+    name: string;
+    styleDescription: string;
+    score: number;
+  }>;
+  toolUsage: Array<{
+    tool: string;
+    success: boolean;
+    durationMs: number;
+  }>;
+  iterationsPerformed: number;
+  issuesDiscovered: string[];
+  fixesApplied: string[];
+  evaluationScores: {
+    overall: number;
+    functional: number;
+    visual: number;
+    stability: number;
+  };
+  passed: boolean;
+}
+
+export interface DesignHistoryRecord {
+  timestamp: string;
+  visualStyle: string;
+  designMood: string;
+  layoutStrategy: string;
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+  };
+  componentPatterns: string[];
+  navigationPattern: string;
+}
+
+export interface UserDesignPreferences {
+  explicitKeywords: string[];    // e.g. ["minimal", "editorial", "dark mode", "playful"]
+  preferredThemes: string[];     // e.g. ["Swiss precision", "Warm tactile"]
+  dislikedPatterns: string[];    // e.g. ["purple gradients", "excessive rounded cards"]
+  preferredColorTones: string[]; // e.g. ["monochrome", "warm earth", "cyberpunk neon"]
+  lastUpdated: string;
+}
+
+export interface ProjectMemory {
+  workspaceId: string;
+  generationReports: GenerationReport[]; // Recent detailed reports (max 5-10)
+  compactHistorySummary: string;         // Compacted summary of earlier generations to prevent bloat
+  designHistory: DesignHistoryRecord[];  // Historical design footprints
+  commonIssuesEncountered: Record<string, number>; // Failure frequency map (e.g. { "dead_handler": 2 })
+  userPreferences?: UserDesignPreferences;
+  totalGenerationsCount: number;
+}
+
+export interface MemoryRetrievalContext {
+  hasMemory: boolean;
+  projectSummary: string;
+  userPreferences: string[];
+  recentDesignFootprints: Array<{
+    visualStyle: string;
+    layoutStrategy: string;
+    primaryColor: string;
+  }>;
+  frequentlyUsedPatterns: string[];
+  repetitionAvoidanceAdvice: string;
+  priorFixesToRemember: string[];
+}

@@ -40,6 +40,12 @@ export type {
   ToolResearchContext,
   AgentToolCall,
   AgentToolDecision,
+  GenerationReport,
+  DesignHistoryRecord,
+  UserDesignPreferences,
+  ProjectMemory,
+  MemoryRetrievalContext,
 } from "./pipeline";
+
 
 

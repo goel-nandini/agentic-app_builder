@@ -21,6 +21,7 @@ model User{
   image String @default("")
   credits Int @default(10)
   plan String @default("free")
+  preferences Json? @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -43,6 +44,7 @@ model Workspace{
   createdAt DateTime @default(now())  
   updatedAt DateTime @updatedAt
   fileData Json?
+  memory Json? @default("{}")
 
   @@index([userId])  
 }

@@ -5,7 +5,9 @@ import type {
   DesignExplorerResult,
   DesignDNA,
   EvaluatedConcept,
+  MemoryRetrievalContext,
 } from "@/types/pipeline";
+
 import type { FileData } from "@/types/workspace";
 
 const ai = new GoogleGenAI({
@@ -280,8 +282,17 @@ function sanitizeDesignExplorerResult(parsed: any, spec: AppSpecification, plan:
 export async function exploreDesignDNA(
   spec: AppSpecification,
   plan: AppPlan,
-  fileData: FileData | null
+  fileData: FileData | null,
+  memoryContext?: MemoryRetrievalContext
 ): Promise<DesignExplorerResult> {
+  let memoryDesignSection = "";
+  if (memoryContext?.hasMemory) {
+    memoryDesignSection = `\n\nDESIGN HISTORY & REPETITION AVOIDANCE RULES (CRITICAL):
+${memoryContext.repetitionAvoidanceAdvice ? `- Repetition Guard: ${memoryContext.repetitionAvoidanceAdvice}` : ""}
+${memoryContext.frequentlyUsedPatterns.length > 0 ? `- Heavily Used Patterns in Workspace: ${memoryContext.frequentlyUsedPatterns.join(", ")}` : ""}
+${memoryContext.userPreferences.length > 0 ? `- User Explicit Style Preferences: ${memoryContext.userPreferences.join(", ")}` : ""}`;
+  }
+
   const promptContent = `Execute the Design Explorer stage for this application.
 Explore 3 diverse, creative, and domain-authentic design concepts that break away from cliché AI layouts, evaluate them, and output the winning Design DNA.
 
@@ -300,9 +311,10 @@ ARCHITECTURAL PLAN SUMMARY:
 - Color Palette: ${plan.designDirection.colorPalette.join(", ")}
 
 GENERIC PATTERNS TO ACTIVELY AVOID:
-${GENERIC_PATTERN_BLACKLIST.map((item) => `- ${item}`).join("\n")}
+${GENERIC_PATTERN_BLACKLIST.map((item) => `- ${item}`).join("\n")}${memoryDesignSection}
 
 Ensure the 3 concepts are distinct in visual language, layout geometry, typography contrast, and interaction model. Output strict JSON matching the instructions.`;
+
 
   const CANDIDATE_MODELS = [
     "gemini-3.1-flash-lite",

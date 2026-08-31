@@ -13,7 +13,25 @@ import { exploreDesignDNA } from "@/lib/pipeline/design-explorer";
 import { evaluateGeneratedApp } from "@/lib/pipeline/evaluator";
 import { runSelfHealingFixer } from "@/lib/pipeline/fixer";
 import { runToolAgent } from "@/lib/pipeline/tool-agent";
-import type { AppSpecification, AppPlan, DesignDNA, ToolResearchContext, ToolCallLog } from "@/types/pipeline";
+
+import {
+  retrieveRelevantMemory,
+  extractUserPreferences,
+  buildGenerationReport,
+  updateProjectMemory,
+} from "@/lib/pipeline/memory";
+import type {
+  AppSpecification,
+  AppPlan,
+  DesignDNA,
+  ToolResearchContext,
+  ToolCallLog,
+  ProjectMemory,
+  UserDesignPreferences,
+  MemoryRetrievalContext,
+  FixerResult,
+} from "@/types/pipeline";
+
 
 
 const ai = new GoogleGenAI({
@@ -183,7 +201,8 @@ function buildContents(
   spec?: AppSpecification,
   plan?: AppPlan,
   designDNA?: DesignDNA,
-  researchContext?: ToolResearchContext
+  researchContext?: ToolResearchContext,
+  memoryContext?: MemoryRetrievalContext
 ) {
   const trimmed = trimHistory(messages);
 
@@ -208,6 +227,11 @@ function buildContents(
         // ── Inject Tool Research Context if available ────────────────────────
         if (researchContext?.wasResearchNeeded && researchContext.synthesizedContext) {
           text += `\n\n══════════════════════════════════════════════════════════════════\n🔍 TOOL RESEARCH CONTEXT (from autonomous research phase):\n${researchContext.synthesizedContext}${researchContext.recommendedPackages.length > 0 ? `\n\nRECOMMENDED PACKAGES: ${researchContext.recommendedPackages.join(", ")}` : ""}${researchContext.apiEndpoints.length > 0 ? `\nKEY API ENDPOINTS: ${researchContext.apiEndpoints.slice(0, 3).join(", ")}` : ""}\n══════════════════════════════════════════════════════════════════\nCRITICAL: Use the research context above to implement the most accurate and up-to-date solution. Prefer the recommended packages and API patterns.`;
+        }
+
+        // ── Inject Prior Quality Directives from Memory if available ────────
+        if (memoryContext?.hasMemory && memoryContext.priorFixesToRemember.length > 0) {
+          text += `\n\n══════════════════════════════════════════════════════════════════\n🛡️ HISTORICAL QUALITY DIRECTIVES (Prevent Regression):\nIn previous runs for this workspace, the following fixes had to be applied:\n${memoryContext.priorFixesToRemember.map((f) => `- ${f}`).join("\n")}\nEnsure your generated code avoids these exact failure modes.\n══════════════════════════════════════════════════════════════════`;
         }
 
         if (fileData) {
@@ -287,13 +311,13 @@ export async function POST(request: NextRequest) {
 
   let user = await db.user.findUnique({
     where: { clerkId },
-    select: { id: true, credits: true },
+    select: { id: true, credits: true, preferences: true },
   });
 
   if (!user) {
     const synced = await checkUser();
     if (synced) {
-      user = { id: synced.id, credits: synced.credits };
+      user = { id: synced.id, credits: synced.credits, preferences: {} as any };
     }
   }
 
@@ -304,6 +328,29 @@ export async function POST(request: NextRequest) {
   }
 
   const currentUserId = user.id;
+
+  // Retrieve existing Workspace Memory if available
+  let existingWorkspaceMemory: ProjectMemory | null = null;
+  if (workspaceId) {
+    const existingWs = await db.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { memory: true },
+    });
+    if (existingWs?.memory && typeof existingWs.memory === "object") {
+      existingWorkspaceMemory = existingWs.memory as unknown as ProjectMemory;
+    }
+  }
+
+  // Retrieve relevant memory context for this generation run
+  const memoryContext = retrieveRelevantMemory(
+    existingWorkspaceMemory,
+    (user.preferences as unknown as UserDesignPreferences) ?? null,
+    lastUserMessage
+  );
+
+  if (memoryContext.hasMemory) {
+    console.log(`[MEMORY] Retrieved memory context: ${memoryContext.userPreferences.length} preferences, ${memoryContext.recentDesignFootprints.length} design footprints`);
+  }
 
   const encoder = new TextEncoder();
 
@@ -349,7 +396,7 @@ export async function POST(request: NextRequest) {
         // ─── Stage 1: Requirement Analyzer ─────────────────────────────────
         enqueue(sseEvent("status", { message: "Analyzing requirements & intent…" }));
         const specStart = Date.now();
-        const appSpec = await analyzeRequirements(messages, fileData);
+        const appSpec = await analyzeRequirements(messages, fileData, memoryContext);
         console.log(`[ANALYZER] Completed specification for "${appSpec.appName}" (${appSpec.appType}) in ${Date.now() - specStart}ms`);
 
         // Re-run tool agent with proper spec if initial research detected needs
@@ -389,13 +436,13 @@ export async function POST(request: NextRequest) {
         // ─── Stage 3: Design Explorer & Design DNA ──────────────────────────
         enqueue(sseEvent("status", { message: "Exploring bespoke design concepts & Crafting Design DNA…" }));
         const dnaStart = Date.now();
-        const explorerResult = await exploreDesignDNA(appSpec, appPlan, fileData);
+        const explorerResult = await exploreDesignDNA(appSpec, appPlan, fileData, memoryContext);
         const designDNA = explorerResult.designDNA;
         console.log(`[DESIGN-DNA] Selected "${designDNA.conceptName}" (Quality: ${designDNA.designQualityScore}/10, Uniqueness: ${designDNA.uniquenessScore}/10, Style: "${designDNA.visualStyle}") in ${Date.now() - dnaStart}ms`);
 
         // ─── Stage 4: Code Generation ───────────────────────────────────────
         enqueue(sseEvent("status", { message: "Generating full-stack application code…" }));
-        const contents = buildContents(messages, fileData, appSpec, appPlan, designDNA, researchContext);
+        const contents = buildContents(messages, fileData, appSpec, appPlan, designDNA, researchContext, memoryContext);
 
 
         const CANDIDATE_MODELS = [
@@ -508,13 +555,15 @@ export async function POST(request: NextRequest) {
         enqueue(sseEvent("status", { message: "Evaluating quality & inspecting code…" }));
         const critique = await evaluateGeneratedApp(files, appSpec, appPlan, designDNA);
         let finalFiles = files;
+        let fixResult: FixerResult | null = null;
 
         if (!critique.passed && critique.criticalIssues.length > 0) {
           enqueue(sseEvent("status", { message: "Self-healing critic refining code…" }));
-          const fixResult = await runSelfHealingFixer(files, critique, appSpec, appPlan, designDNA, 1);
+          fixResult = await runSelfHealingFixer(files, critique, appSpec, appPlan, designDNA, 1);
           finalFiles = fixResult.fixedFiles;
           console.log(`[FIXER] Applied ${fixResult.fixesApplied.length} autonomous fix(es) across ${fixResult.attemptCount} iteration(s)`);
         }
+
 
         // ── Validate npm packages ──────────────────────────────────────────────
 
@@ -526,6 +575,32 @@ export async function POST(request: NextRequest) {
           title: aiTitle,
         };
 
+        // ─── Phase 5: Build Generation Report & Update Project Memory ─────────
+        const updatedUserPreferences = extractUserPreferences(
+          lastUserMessage,
+          (user.preferences as unknown as UserDesignPreferences) ?? undefined
+        );
+
+        const generationReport = buildGenerationReport({
+          userPrompt: lastUserMessage,
+          spec: appSpec,
+          plan: appPlan,
+          designDNA,
+          exploredConcepts: explorerResult.exploredConcepts,
+          toolLogs: researchContext?.toolCallLogs,
+          evaluation: critique,
+          fixesApplied: fixResult?.fixesApplied,
+          iterationsPerformed: fixResult ? fixResult.attemptCount : 1,
+        });
+
+        const updatedProjectMemory = updateProjectMemory(
+          existingWorkspaceMemory,
+          generationReport,
+          designDNA,
+          updatedUserPreferences
+        );
+
+        console.log(`[MEMORY] Generated report ${generationReport.generationId} (Score: ${generationReport.evaluationScores.overall}/10). Total memory records: ${updatedProjectMemory.generationReports.length}`);
 
         // ── Database persistence & credit deduction ────────────────────────────
 
@@ -533,7 +608,6 @@ export async function POST(request: NextRequest) {
         const dbStart = Date.now();
         console.log(`[DATABASE] Save started for user ${currentUserId}`);
 
-        const lastUserMessage = messages[messages.length - 1];
         const updatedMessages: Message[] = [
           ...messages,
           { role: "assistant", content: assistantMessage },
@@ -551,6 +625,7 @@ export async function POST(request: NextRequest) {
               data: {
                 message: updatedMessages as never,
                 fileData: newFileData as never,
+                memory: updatedProjectMemory as never,
               },
             });
           } else {
@@ -558,16 +633,20 @@ export async function POST(request: NextRequest) {
               data: {
                 userId: currentUserId,
                 name: aiTitle ?? "Workspace",
-                title: aiTitle ?? lastUserMessage.content.slice(0, 80),
+                title: aiTitle ?? lastUserMessage.slice(0, 80),
                 message: updatedMessages as never,
                 fileData: newFileData as never,
+                memory: updatedProjectMemory as never,
               },
             });
           }
 
           updatedUser = await db.user.update({
             where: { id: currentUserId },
-            data: { credits: { decrement: CREDIT_COST_PER_GENERATION } },
+            data: {
+              credits: { decrement: CREDIT_COST_PER_GENERATION },
+              preferences: updatedUserPreferences as never,
+            },
             select: { credits: true },
           });
 

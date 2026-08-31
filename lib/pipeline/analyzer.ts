@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
-import type { AppSpecification } from "@/types/pipeline";
+import type { AppSpecification, MemoryRetrievalContext } from "@/types/pipeline";
 import type { Message, FileData } from "@/types/workspace";
+
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY!,
@@ -78,18 +79,27 @@ function sanitizeSpecification(parsed: any, userPrompt: string): AppSpecificatio
 
 export async function analyzeRequirements(
   messages: Message[],
-  fileData: FileData | null
+  fileData: FileData | null,
+  memoryContext?: MemoryRetrievalContext
 ): Promise<AppSpecification> {
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
   const conversationSummary = messages
     .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
     .join("\n\n");
 
+  let memoryPromptSection = "";
+  if (memoryContext?.hasMemory) {
+    memoryPromptSection = `\n\nHISTORICAL PROJECT & USER MEMORY CONTEXT:
+${memoryContext.projectSummary ? `- Project History: ${memoryContext.projectSummary}` : ""}
+${memoryContext.userPreferences.length > 0 ? `- Known User Design Preferences: ${memoryContext.userPreferences.join(", ")}` : ""}`;
+  }
+
   const promptContent = `Analyze the following user request and conversation history, and extract the complete App Specification according to your instructions.
   
 USER REQUEST & CONVERSATION:
 ${conversationSummary}
-${fileData ? `\n\nEXISTING WORKSPACE CONTEXT:\n${JSON.stringify({ title: fileData.title, existingFiles: Object.keys(fileData.files) })}` : ""}`;
+${fileData ? `\n\nEXISTING WORKSPACE CONTEXT:\n${JSON.stringify({ title: fileData.title, existingFiles: Object.keys(fileData.files) })}` : ""}${memoryPromptSection}`;
+
 
   const CANDIDATE_MODELS = [
     "gemini-3.1-flash-lite",
