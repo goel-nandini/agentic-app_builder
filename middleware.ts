@@ -7,9 +7,13 @@ const isProtectedRoute = createRouteMatcher([
   "/projects(.*)",
 ]);
 
+// Routes that have their own per-route Arcjet protection (lib/arcjet.ts)
+// Skip global Arcjet on these to avoid double-protection and false positives
+// from server-to-server / Lambda traffic that Arcjet can't fingerprint as a browser.
+const isApiRoute = createRouteMatcher(["/api/(.*)"]);
+
 // ─── Global Arcjet client ─────────────────────────────────────────────────────
-// Runs on every request. Looser than the route-level client — allows search
-// engines, link previews, and AWS Lambda/Amplify internal traffic so the
+// Only runs on UI routes. Allows search engines and link previews so the
 // landing page gets indexed and Slack/Twitter unfurls work.
 
 const aj = process.env.ARCJET_KEY
@@ -22,8 +26,7 @@ const aj = process.env.ARCJET_KEY
           allow: [
             "CATEGORY:SEARCH_ENGINE",
             "CATEGORY:PREVIEW",
-            "CATEGORY:MONITOR",   // allows uptime monitors / health checks
-            "CATEGORY:CLOUD",     // allows AWS Lambda / Amplify internal traffic
+            "CATEGORY:MONITOR",
           ],
         }),
       ],
@@ -31,17 +34,14 @@ const aj = process.env.ARCJET_KEY
   : null;
 
 export default clerkMiddleware(async (auth, req) => {
-  if (aj) {
+  // Skip Arcjet bot/shield check on API routes — they protect themselves
+  // via lib/arcjet.ts. Lambda/server traffic to /api/* would be
+  // incorrectly flagged as a bot since it has no browser fingerprint.
+  if (aj && !isApiRoute(req)) {
     try {
       const decision = await aj.protect(req);
       if (decision.isDenied()) {
-        // Only hard-block on shield (attack detection), not bot detection on
-        // API routes — API calls come from server-side / Lambda environments
-        // that Arcjet may misclassify as bots.
-        const isApiRoute = req.nextUrl.pathname.startsWith("/api/");
-        if (!isApiRoute) {
-          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     } catch (error) {
       console.warn("Arcjet middleware protection failed:", error);
