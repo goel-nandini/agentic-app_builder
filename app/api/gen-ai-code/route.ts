@@ -10,7 +10,10 @@ import { aj } from "@/lib/arcjet";
 import { analyzeRequirements } from "@/lib/pipeline/analyzer";
 import { generatePlan } from "@/lib/pipeline/planner";
 import { exploreDesignDNA } from "@/lib/pipeline/design-explorer";
+import { evaluateGeneratedApp } from "@/lib/pipeline/evaluator";
+import { runSelfHealingFixer } from "@/lib/pipeline/fixer";
 import type { AppSpecification, AppPlan, DesignDNA } from "@/types/pipeline";
+
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY!,
@@ -433,15 +436,28 @@ export async function POST(request: NextRequest) {
           return;
         }
 
+        // ─── Stage 5: Inspect, Critique & Self-Healing Loop ──────────────────
+        enqueue(sseEvent("status", { message: "Evaluating quality & inspecting code…" }));
+        const critique = await evaluateGeneratedApp(files, appSpec, appPlan, designDNA);
+        let finalFiles = files;
+
+        if (!critique.passed && critique.criticalIssues.length > 0) {
+          enqueue(sseEvent("status", { message: "Self-healing critic refining code…" }));
+          const fixResult = await runSelfHealingFixer(files, critique, appSpec, appPlan, designDNA, 1);
+          finalFiles = fixResult.fixedFiles;
+          console.log(`[FIXER] Applied ${fixResult.fixesApplied.length} autonomous fix(es) across ${fixResult.attemptCount} iteration(s)`);
+        }
+
         // ── Validate npm packages ──────────────────────────────────────────────
 
         enqueue(sseEvent("status", { message: "Validating packages…" }));
         const validatedDeps = await validateDependencies(dependencies ?? {});
         const newFileData: FileData = {
-          files,
+          files: finalFiles,
           dependencies: validatedDeps,
           title: aiTitle,
         };
+
 
         // ── Database persistence & credit deduction ────────────────────────────
 

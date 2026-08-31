@@ -26,5 +26,11 @@ export type {
   ColorStrategy,
   TypographyStrategy,
   ComponentShapeStrategy,
+  IssueSeverity,
+  InspectionIssue,
+  CodeInspectionResult,
+  CritiqueEvaluation,
+  FixerResult,
 } from "./pipeline";
+
 

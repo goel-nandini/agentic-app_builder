@@ -155,3 +155,45 @@ export interface DesignExplorerResult {
   selectedConceptIndex: number;
   designDNA: DesignDNA;
 }
+
+// ─── Critic & Self-Healing Loop Types (Phase 3) ──────────────────────────────
+
+
+export type IssueSeverity = "critical" | "warning" | "suggestion";
+
+export interface InspectionIssue {
+  severity: IssueSeverity;
+  filePath: string;
+  category: "syntax" | "imports" | "interactivity" | "design_dna" | "responsive";
+  description: string;
+  suggestedFix?: string;
+}
+
+export interface CodeInspectionResult {
+  passedStaticAnalysis: boolean;
+  issues: InspectionIssue[];
+  metrics: {
+    totalFiles: number;
+    totalLines: number;
+    deadHandlerCount: number;
+    missingExportCount: number;
+  };
+}
+
+export interface CritiqueEvaluation {
+  overallScore: number;       // 0.0 - 10.0
+  functionalScore: number;    // 0.0 - 10.0
+  visualDesignScore: number;  // 0.0 - 10.0
+  stabilityScore: number;     // 0.0 - 10.0
+  passed: boolean;            // true if overallScore >= threshold (e.g. 8.5)
+  critiqueSummary: string;
+  criticalIssues: string[];
+  recommendedFixes: string[];
+}
+
+export interface FixerResult {
+  fixedFiles: Record<string, { code: string }>;
+  fixesApplied: string[];
+  attemptCount: number;
+  finalEvaluation: CritiqueEvaluation;
+}
