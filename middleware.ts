@@ -9,8 +9,8 @@ const isProtectedRoute = createRouteMatcher([
 
 // ─── Global Arcjet client ─────────────────────────────────────────────────────
 // Runs on every request. Looser than the route-level client — allows search
-// engines and link previews so the landing page gets indexed and
-// Slack/Twitter unfurls work.
+// engines, link previews, and AWS Lambda/Amplify internal traffic so the
+// landing page gets indexed and Slack/Twitter unfurls work.
 
 const aj = process.env.ARCJET_KEY
   ? arcjet({
@@ -19,7 +19,12 @@ const aj = process.env.ARCJET_KEY
         shield({ mode: "LIVE" }),
         detectBot({
           mode: "LIVE",
-          allow: ["CATEGORY:SEARCH_ENGINE", "CATEGORY:PREVIEW"],
+          allow: [
+            "CATEGORY:SEARCH_ENGINE",
+            "CATEGORY:PREVIEW",
+            "CATEGORY:MONITOR",   // allows uptime monitors / health checks
+            "CATEGORY:CLOUD",     // allows AWS Lambda / Amplify internal traffic
+          ],
         }),
       ],
     })
@@ -30,7 +35,13 @@ export default clerkMiddleware(async (auth, req) => {
     try {
       const decision = await aj.protect(req);
       if (decision.isDenied()) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        // Only hard-block on shield (attack detection), not bot detection on
+        // API routes — API calls come from server-side / Lambda environments
+        // that Arcjet may misclassify as bots.
+        const isApiRoute = req.nextUrl.pathname.startsWith("/api/");
+        if (!isApiRoute) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
       }
     } catch (error) {
       console.warn("Arcjet middleware protection failed:", error);
