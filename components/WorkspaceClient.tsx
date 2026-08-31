@@ -13,6 +13,7 @@ import type {
   StatusStep,
   WorkspaceData,
 } from "@/types/workspace";
+import type { ToolCallLog } from "@/types/pipeline";
 
 export type {
   MessageRole,
@@ -64,6 +65,7 @@ export function WorkspaceClient({
   const [isGenerating, setIsGenerating] = useState(false);
   const [statusLog, setStatusLog] = useState<StatusStep[]>([]);
   const [isImproving, setIsImproving] = useState(false);
+  const [toolLogs, setToolLogs] = useState<ToolCallLog[]>([]);
 
   // Synchronous in-flight guards to prevent duplicate concurrent triggers
   const isGeneratingRef = useRef(false);
@@ -130,6 +132,7 @@ export function WorkspaceClient({
 
       setMessages((prev) => [...prev, userMessage]);
       setStatusLog([{ label: "Thinking…", status: "running" }]);
+      setToolLogs([]);
 
       // Create a fresh AbortController for this request
       const abortController = new AbortController();
@@ -179,6 +182,8 @@ export function WorkspaceClient({
               const event = JSON.parse(line.slice(6));
               if (event.type === "status") {
                 pushStep(event.message);
+              } else if (event.type === "tool_log") {
+                setToolLogs((prev) => [...prev, event as ToolCallLog]);
               } else if (event.type === "done") {
                 completeSteps();
                 setWorkspaceId(event.workspaceId);
@@ -378,6 +383,7 @@ export function WorkspaceClient({
           messages={messages}
           isGenerating={isGenerating}
           statusLog={statusLog}
+          toolLogs={toolLogs}
           credits={credits}
           initialPrompt={initialPrompt}
           onGenerate={handleGenerate}

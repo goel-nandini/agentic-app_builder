@@ -12,7 +12,8 @@ import { generatePlan } from "@/lib/pipeline/planner";
 import { exploreDesignDNA } from "@/lib/pipeline/design-explorer";
 import { evaluateGeneratedApp } from "@/lib/pipeline/evaluator";
 import { runSelfHealingFixer } from "@/lib/pipeline/fixer";
-import type { AppSpecification, AppPlan, DesignDNA } from "@/types/pipeline";
+import { runToolAgent } from "@/lib/pipeline/tool-agent";
+import type { AppSpecification, AppPlan, DesignDNA, ToolResearchContext, ToolCallLog } from "@/types/pipeline";
 
 
 const ai = new GoogleGenAI({
@@ -181,7 +182,8 @@ function buildContents(
   fileData: FileData | null,
   spec?: AppSpecification,
   plan?: AppPlan,
-  designDNA?: DesignDNA
+  designDNA?: DesignDNA,
+  researchContext?: ToolResearchContext
 ) {
   const trimmed = trimHistory(messages);
 
@@ -201,6 +203,11 @@ function buildContents(
       if (isLast) {
         if (spec && plan && designDNA) {
           text += `\n\n══════════════════════════════════════════════════════════════════\nAPPROVED APP SPECIFICATION:\n${JSON.stringify(spec, null, 2)}\n\n══════════════════════════════════════════════════════════════════\nARCHITECTURAL & IMPLEMENTATION PLAN:\n${JSON.stringify(plan, null, 2)}\n\n══════════════════════════════════════════════════════════════════\nMANDATORY BESPOKE DESIGN DNA (HARD CONSTRAINT):\n${JSON.stringify(designDNA, null, 2)}\n══════════════════════════════════════════════════════════════════\nCRITICAL DESIGN DNA EXECUTION RULES:\n- Visual Style & Mood: ${designDNA.visualStyle} (${designDNA.designMood})\n- Layout System: ${designDNA.layoutStrategy}\n- Component Shapes: Use ${designDNA.componentShapeStrategy.borderRadius} corners, '${designDNA.componentShapeStrategy.borderStyle}', and '${designDNA.componentShapeStrategy.cardStyle}'\n- Colors: Background (${designDNA.colorStrategy.background}), Surface (${designDNA.colorStrategy.surface}), Text (${designDNA.colorStrategy.textPrimary}), Accent (${designDNA.colorStrategy.accent}). Rule: ${designDNA.colorStrategy.usageRules}\n- FORBIDDEN PATTERNS TO STRICTLY AVOID:\n${designDNA.avoidPatterns.map((p) => `  * ${p}`).join("\n")}\n\nImplement the complete React application files adhering strictly to this plan, specification, and bespoke Design DNA.`;
+        }
+
+        // ── Inject Tool Research Context if available ────────────────────────
+        if (researchContext?.wasResearchNeeded && researchContext.synthesizedContext) {
+          text += `\n\n══════════════════════════════════════════════════════════════════\n🔍 TOOL RESEARCH CONTEXT (from autonomous research phase):\n${researchContext.synthesizedContext}${researchContext.recommendedPackages.length > 0 ? `\n\nRECOMMENDED PACKAGES: ${researchContext.recommendedPackages.join(", ")}` : ""}${researchContext.apiEndpoints.length > 0 ? `\nKEY API ENDPOINTS: ${researchContext.apiEndpoints.slice(0, 3).join(", ")}` : ""}\n══════════════════════════════════════════════════════════════════\nCRITICAL: Use the research context above to implement the most accurate and up-to-date solution. Prefer the recommended packages and API patterns.`;
         }
 
         if (fileData) {
@@ -306,11 +313,72 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(chunk));
 
       try {
+        // ─── Stage 0: Tool Agent — Research & Context Gathering ─────────────
+        enqueue(sseEvent("status", { message: "Assessing research needs…" }));
+        const toolStart = Date.now();
+        let researchContext: ToolResearchContext | undefined;
+        try {
+          researchContext = await runToolAgent(
+            messages,
+            // We need a quick spec for tool decisions — run analyzer first
+            // but we'll run the full analyzer below. Use message content directly.
+            { appName: "app", appType: "web app", coreFeatures: [messages[messages.length - 1]?.content ?? ""] } as AppSpecification,
+            fileData,
+            (log: ToolCallLog) => {
+              // Stream each tool call log to the client in real-time
+              enqueue(sseEvent("tool_log", {
+                tool: log.tool,
+                reason: log.reason,
+                result: log.result,
+                success: log.success,
+                durationMs: log.durationMs,
+                skipped: log.skipped ?? false,
+                skipReason: log.skipReason,
+                error: log.error,
+              }));
+            }
+          );
+        } catch (toolErr) {
+          console.warn("[TOOL-AGENT] Research phase failed gracefully:", toolErr);
+        }
+        if (researchContext?.wasResearchNeeded) {
+          enqueue(sseEvent("status", { message: `Research complete — ${researchContext.toolCallLogs.length} tool(s) executed in ${Date.now() - toolStart}ms` }));
+          console.log(`[TOOL-AGENT] Research done in ${Date.now() - toolStart}ms. Packages: ${researchContext.recommendedPackages.join(", ") || "none"}`);
+        }
+
         // ─── Stage 1: Requirement Analyzer ─────────────────────────────────
         enqueue(sseEvent("status", { message: "Analyzing requirements & intent…" }));
         const specStart = Date.now();
         const appSpec = await analyzeRequirements(messages, fileData);
         console.log(`[ANALYZER] Completed specification for "${appSpec.appName}" (${appSpec.appType}) in ${Date.now() - specStart}ms`);
+
+        // Re-run tool agent with proper spec if initial research detected needs
+        // (Tool Agent was seeded with raw message — now refine with real spec context)
+        if (!researchContext?.wasResearchNeeded) {
+          try {
+            const refinedContext = await runToolAgent(
+              messages,
+              appSpec,
+              fileData,
+              (log: ToolCallLog) => {
+                enqueue(sseEvent("tool_log", {
+                  tool: log.tool,
+                  reason: log.reason,
+                  result: log.result,
+                  success: log.success,
+                  durationMs: log.durationMs,
+                  skipped: log.skipped ?? false,
+                  skipReason: log.skipReason,
+                  error: log.error,
+                }));
+              }
+            );
+            if (refinedContext.wasResearchNeeded) {
+              researchContext = refinedContext;
+              enqueue(sseEvent("status", { message: `Research complete — ${refinedContext.toolCallLogs.length} tool(s) used` }));
+            }
+          } catch { /* graceful skip */ }
+        }
 
         // ─── Stage 2: Architecture & UX Planner ─────────────────────────────
         enqueue(sseEvent("status", { message: "Formulating architectural & UX plan…" }));
@@ -327,7 +395,7 @@ export async function POST(request: NextRequest) {
 
         // ─── Stage 4: Code Generation ───────────────────────────────────────
         enqueue(sseEvent("status", { message: "Generating full-stack application code…" }));
-        const contents = buildContents(messages, fileData, appSpec, appPlan, designDNA);
+        const contents = buildContents(messages, fileData, appSpec, appPlan, designDNA, researchContext);
 
 
         const CANDIDATE_MODELS = [

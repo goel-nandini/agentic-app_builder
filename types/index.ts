@@ -31,6 +31,15 @@ export type {
   CodeInspectionResult,
   CritiqueEvaluation,
   FixerResult,
+  ToolCategory,
+  ToolSafetyLevel,
+  ToolExecutionContext,
+  ToolParameter,
+  ToolDefinition,
+  ToolCallLog,
+  ToolResearchContext,
+  AgentToolCall,
+  AgentToolDecision,
 } from "./pipeline";
 
 

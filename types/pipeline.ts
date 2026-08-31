@@ -197,3 +197,65 @@ export interface FixerResult {
   attemptCount: number;
   finalEvaluation: CritiqueEvaluation;
 }
+
+// ─── Tool Layer Types (Phase 4) ───────────────────────────────────────────────
+
+export type ToolCategory =
+  | "research"
+  | "file"
+  | "package"
+  | "sandbox"
+  | "browser";
+
+export type ToolSafetyLevel = "safe" | "restricted" | "dangerous";
+export type ToolExecutionContext = "server" | "sandbox" | "stub";
+
+export interface ToolParameter {
+  name: string;
+  type: "string" | "number" | "boolean" | "string[]";
+  description: string;
+  required: boolean;
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  category: ToolCategory;
+  safetyLevel: ToolSafetyLevel;
+  executionContext: ToolExecutionContext;
+  parameters: ToolParameter[];
+  example?: string;
+}
+
+export interface ToolCallLog {
+  tool: string;
+  reason: string;
+  args: Record<string, unknown>;
+  result: string | null;
+  success: boolean;
+  durationMs: number;
+  error?: string;
+  skipped?: boolean;
+  skipReason?: string;
+}
+
+export interface ToolResearchContext {
+  wasResearchNeeded: boolean;
+  toolCallLogs: ToolCallLog[];
+  synthesizedContext: string;
+  recommendedPackages: string[];
+  apiEndpoints: string[];
+  implementationGuidance: string[];
+}
+
+export interface AgentToolCall {
+  tool: string;
+  reason: string;
+  args: Record<string, unknown>;
+}
+
+export interface AgentToolDecision {
+  shouldResearch: boolean;
+  reasoning: string;
+  toolCalls: AgentToolCall[];
+}

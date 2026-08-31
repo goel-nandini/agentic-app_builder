@@ -10,12 +10,20 @@ import {
   Sparkles,
   Wand2,
   Square,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Package,
+  FileSearch,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { PricingModal } from "@/components/PricingModal";
 import type { Message, StatusStep } from "@/types/workspace";
+import type { ToolCallLog } from "@/types/pipeline";
 import { createClient } from "@supabase/supabase-js";
 import { BlueTitle } from "./Reusables";
 import { NodexLogo } from "@/components/NodexLogo";
@@ -33,6 +41,7 @@ interface ChatPanelProps {
   isGenerating: boolean;
   isImproving: boolean;
   statusLog: StatusStep[];
+  toolLogs?: ToolCallLog[];
   credits: number;
   initialPrompt: string | null;
   onGenerate: (prompt: string, imageUrl?: string) => Promise<void>;
@@ -47,6 +56,7 @@ export function ChatPanel({
   isGenerating,
   isImproving,
   statusLog,
+  toolLogs = [],
   credits,
   initialPrompt,
   onGenerate,
@@ -63,6 +73,7 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [toolLogExpanded, setToolLogExpanded] = useState(true);
 
   const hasAutoSubmittedRef = useRef(false);
   const noCredits = credits <= 0;
@@ -267,7 +278,7 @@ export function ChatPanel({
               <div className="mt-0.5 shrink-0">
                 <NodexLogo size="sm" showText={false} />
               </div>
-              <div className="rounded-2xl rounded-tl-sm bg-white/5 px-3.5 py-3">
+              <div className="w-full rounded-2xl rounded-tl-sm bg-white/5 px-3.5 py-3">
                 <div className="space-y-2">
                   {statusLog.map((step, i) => (
                     <div key={i} className="flex items-center gap-2.5">
@@ -303,6 +314,96 @@ export function ChatPanel({
                     </div>
                   ))}
                 </div>
+
+                {/* Tool Execution Log — shown when tools fire */}
+                {toolLogs.length > 0 && (
+                  <div className="mt-3 border-t border-white/8 pt-3">
+                    <button
+                      onClick={() => setToolLogExpanded((v) => !v)}
+                      className="flex w-full items-center justify-between text-[10px] uppercase tracking-widest text-white/30 hover:text-white/50 transition-colors"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Search className="h-2.5 w-2.5" />
+                        Tool Research ({toolLogs.filter((l) => !l.skipped).length} executed)
+                      </span>
+                      {toolLogExpanded ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                    </button>
+
+                    {toolLogExpanded && (
+                      <div className="mt-2 space-y-2">
+                        {toolLogs.map((log, idx) => {
+                          const ToolIcon =
+                            log.tool === "web_search"
+                              ? Search
+                              : log.tool === "package_search" || log.tool === "install_dependency"
+                              ? Package
+                              : FileSearch;
+
+                          return (
+                            <div
+                              key={idx}
+                              className={cn(
+                                "rounded-lg border p-2.5 text-[11px]",
+                                log.skipped
+                                  ? "border-white/5 bg-white/3"
+                                  : log.success
+                                  ? "border-emerald-500/15 bg-emerald-500/5"
+                                  : "border-red-500/15 bg-red-500/5"
+                              )}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <ToolIcon
+                                    className={cn(
+                                      "h-3 w-3 shrink-0",
+                                      log.skipped
+                                        ? "text-white/20"
+                                        : log.success
+                                        ? "text-emerald-400/70"
+                                        : "text-red-400/70"
+                                    )}
+                                  />
+                                  <span className="font-mono font-medium text-white/60">
+                                    {log.tool}
+                                  </span>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1.5">
+                                  <span className="text-white/25">{log.durationMs}ms</span>
+                                  {log.skipped ? (
+                                    <span className="text-white/25">skipped</span>
+                                  ) : log.success ? (
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-400/60" />
+                                  ) : (
+                                    <XCircle className="h-3 w-3 text-red-400/60" />
+                                  )}
+                                </div>
+                              </div>
+                              {log.reason && (
+                                <p className="mt-1 text-white/35 leading-snug">
+                                  {log.reason}
+                                </p>
+                              )}
+                              {log.result && !log.skipped && (
+                                <p className="mt-1 text-white/25 leading-snug line-clamp-3">
+                                  {log.result.slice(0, 180)}{log.result.length > 180 ? "…" : ""}
+                                </p>
+                              )}
+                              {log.error && (
+                                <p className="mt-1 text-red-400/50 leading-snug">
+                                  ⚠ {log.error}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
