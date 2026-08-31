@@ -9,12 +9,14 @@ import { aj } from "@/lib/arcjet";
 
 import { analyzeRequirements } from "@/lib/pipeline/analyzer";
 import { generatePlan } from "@/lib/pipeline/planner";
-import type { AppSpecification, AppPlan } from "@/types/pipeline";
+import { exploreDesignDNA } from "@/lib/pipeline/design-explorer";
+import type { AppSpecification, AppPlan, DesignDNA } from "@/types/pipeline";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY!,
   httpOptions: { apiVersion: "v1beta" },
 });
+
 
 // ─── SSE helper ───────────────────────────────────────────────────────────────
 
@@ -114,14 +116,15 @@ function trimHistory(messages: Message[]): Message[] {
 // ─── System prompt ────────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `You are a World-Class Full-Stack React Software Architect and UI/UX Designer.
-Your mission is to build STUNNING, unique, production-grade, and 100% fully functional React web applications tailored PRECISELY to the provided App Specification and Architectural Plan (supporting English, Hindi, Hinglish, casual phrases, or detailed specifications).
+Your mission is to build STUNNING, unique, production-grade, and 100% fully functional React web applications tailored PRECISELY to the provided App Specification, Architectural Plan, and bespoke Design DNA (supporting English, Hindi, Hinglish, casual phrases, or detailed specifications).
 
 CRITICAL ARCHITECTURE & CREATIVE PRINCIPLES:
 
-1. EXECUTE THE ARCHITECTURAL PLAN STRICTLY:
-   - Carefully follow the provided App Specification and Architectural Plan for component breakdown, state flow, responsive layout, and design direction.
-   - Tailor the architecture, pages, components, and workflows exclusively to that specific domain (games, utilities, media, SaaS, e-commerce, portfolios, social, etc.).
-   - Prioritize explicit user requirements above all else.
+1. STRICTLY ENFORCE THE BESPOKE DESIGN DNA (HARD CONSTRAINT):
+   - Adopt the EXACT visualStyle, designMood, colorStrategy, typographyStrategy, layoutStrategy, and componentShapeStrategy designated in the Design DNA.
+   - STRICTLY AVOID every pattern listed in the Design DNA's 'avoidPatterns' blacklist.
+   - Do NOT fall back to generic SaaS dashboards, default purple gradients, or uninspired 3-card rows unless the domain explicitly demands it.
+   - Tailor the visual identity and layout specifically to the product domain (e.g. warm tactile pet profiles, Swiss high-density finance, magazine editorial portfolios, arcade game HUDs, or crisp invoice utilities).
 
 2. REAL WORKING FUNCTIONALITY & COMPLETE STATE MANAGEMENT:
    - EVERY button, toggle, filter, search bar, slider, form, tab, and modal MUST be fully functional with React state ('useState', 'useEffect', 'useMemo', 'useCallback').
@@ -133,19 +136,14 @@ CRITICAL ARCHITECTURE & CREATIVE PRINCIPLES:
      * Category/status tabs switch active views smoothly.
      * Forms validate inputs and add/update items in state.
      * Deletion, toggling, favoriting, and editing mutate state immediately with clean visual feedback.
-   - Populate with generous, rich domain-specific realistic mock data.
+   - Populate with generous, rich domain-specific realistic mock data (realistic names, prices, stats, avatars, descriptions, and high-resolution Unsplash image URLs).
 
 3. 100% RESPONSIVE DESIGN (LAPTOP, TABLET, MOBILE):
    - The app must fit and look gorgeous on all screen sizes (100% full screen laptop, 768px tablet, 390px mobile).
-   - Root wrapper: 'min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col font-sans antialiased overflow-x-hidden'
-   - Use fluid responsive Tailwind classes: 'px-4 sm:px-6 lg:px-8', 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6', 'flex-col sm:flex-row'.
+   - Follow the responsive layout strategy specified in the Design DNA.
    - Avoid fixed widths that cause horizontal scrolling. Use 'w-full', 'max-w-full', 'truncate', 'flex-wrap'.
 
-4. UNIQUE, BESPOKE VISUAL AESTHETICS (CUSTOM PER PROMPT):
-   - Adopt the color palette and UI theme designated in the Architectural Plan.
-   - Incorporate modern UI polish: glassmorphism ('bg-slate-900/70 backdrop-blur-xl border border-white/10'), smooth hover transitions, subtle shadows, and rich icons from 'lucide-react'.
-
-5. MODULAR MULTI-FILE ARCHITECTURE & STRICT JSX RULES:
+4. MODULAR MULTI-FILE ARCHITECTURE & STRICT JSX RULES:
    - Implement the modular files specified in the Component Architecture plan:
      * "/App.js": Main application shell, state hub, layout. Default export.
      * Component files matching the domain (e.g. "/components/Header.js", "/components/MainView.js", etc.).
@@ -156,10 +154,10 @@ CRITICAL ARCHITECTURE & CREATIVE PRINCIPLES:
      * Include 'import React, { useState, useEffect } from "react";' at the top of every component file.
      * Pure JavaScript/JSX only (no TypeScript syntax in sandbox files).
 
-6. OUTPUT FORMAT (STRICT JSON ONLY):
+5. OUTPUT FORMAT (STRICT JSON ONLY):
    - Return ONLY a single raw JSON object (NO markdown backticks, NO surrounding text outside JSON):
 {
-  "assistantMessage": "<enthusiastic 1-2 sentence overview of what was created>",
+  "assistantMessage": "<enthusiastic 1-2 sentence overview of what was created with reference to the bespoke design style>",
   "title": "<short 2-4 word clean title for the project>",
   "files": {
     "/App.js": { "code": "<complete valid javascript code>" },
@@ -179,7 +177,8 @@ function buildContents(
   messages: Message[],
   fileData: FileData | null,
   spec?: AppSpecification,
-  plan?: AppPlan
+  plan?: AppPlan,
+  designDNA?: DesignDNA
 ) {
   const trimmed = trimHistory(messages);
 
@@ -197,8 +196,8 @@ function buildContents(
 
       const isLast = idx === trimmed.length - 1;
       if (isLast) {
-        if (spec && plan) {
-          text += `\n\n══════════════════════════════════════════════════════════════════\nAPPROVED APP SPECIFICATION:\n${JSON.stringify(spec, null, 2)}\n\n══════════════════════════════════════════════════════════════════\nARCHITECTURAL & IMPLEMENTATION PLAN:\n${JSON.stringify(plan, null, 2)}\n══════════════════════════════════════════════════════════════════\nImplement the complete React application files adhering strictly to this plan and specification.`;
+        if (spec && plan && designDNA) {
+          text += `\n\n══════════════════════════════════════════════════════════════════\nAPPROVED APP SPECIFICATION:\n${JSON.stringify(spec, null, 2)}\n\n══════════════════════════════════════════════════════════════════\nARCHITECTURAL & IMPLEMENTATION PLAN:\n${JSON.stringify(plan, null, 2)}\n\n══════════════════════════════════════════════════════════════════\nMANDATORY BESPOKE DESIGN DNA (HARD CONSTRAINT):\n${JSON.stringify(designDNA, null, 2)}\n══════════════════════════════════════════════════════════════════\nCRITICAL DESIGN DNA EXECUTION RULES:\n- Visual Style & Mood: ${designDNA.visualStyle} (${designDNA.designMood})\n- Layout System: ${designDNA.layoutStrategy}\n- Component Shapes: Use ${designDNA.componentShapeStrategy.borderRadius} corners, '${designDNA.componentShapeStrategy.borderStyle}', and '${designDNA.componentShapeStrategy.cardStyle}'\n- Colors: Background (${designDNA.colorStrategy.background}), Surface (${designDNA.colorStrategy.surface}), Text (${designDNA.colorStrategy.textPrimary}), Accent (${designDNA.colorStrategy.accent}). Rule: ${designDNA.colorStrategy.usageRules}\n- FORBIDDEN PATTERNS TO STRICTLY AVOID:\n${designDNA.avoidPatterns.map((p) => `  * ${p}`).join("\n")}\n\nImplement the complete React application files adhering strictly to this plan, specification, and bespoke Design DNA.`;
         }
 
         if (fileData) {
@@ -215,6 +214,7 @@ function buildContents(
     return { role, parts: [{ text: msg.content }] };
   });
 }
+
 
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -313,11 +313,19 @@ export async function POST(request: NextRequest) {
         enqueue(sseEvent("status", { message: "Formulating architectural & UX plan…" }));
         const planStart = Date.now();
         const appPlan = await generatePlan(appSpec, fileData);
-        console.log(`[PLANNER] Planned ${appPlan.componentArchitecture.length} components, theme "${appPlan.designDirection.uiTheme}" in ${Date.now() - planStart}ms`);
+        console.log(`[PLANNER] Planned ${appPlan.componentArchitecture.length} components in ${Date.now() - planStart}ms`);
 
-        // ─── Stage 3: Code Generation ───────────────────────────────────────
+        // ─── Stage 3: Design Explorer & Design DNA ──────────────────────────
+        enqueue(sseEvent("status", { message: "Exploring bespoke design concepts & Crafting Design DNA…" }));
+        const dnaStart = Date.now();
+        const explorerResult = await exploreDesignDNA(appSpec, appPlan, fileData);
+        const designDNA = explorerResult.designDNA;
+        console.log(`[DESIGN-DNA] Selected "${designDNA.conceptName}" (Quality: ${designDNA.designQualityScore}/10, Uniqueness: ${designDNA.uniquenessScore}/10, Style: "${designDNA.visualStyle}") in ${Date.now() - dnaStart}ms`);
+
+        // ─── Stage 4: Code Generation ───────────────────────────────────────
         enqueue(sseEvent("status", { message: "Generating full-stack application code…" }));
-        const contents = buildContents(messages, fileData, appSpec, appPlan);
+        const contents = buildContents(messages, fileData, appSpec, appPlan, designDNA);
+
 
         const CANDIDATE_MODELS = [
           "gemini-3.1-flash-lite",

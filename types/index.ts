@@ -18,4 +18,13 @@ export type {
   PageSpec,
   FeatureImplementationSpec,
   InteractionSpec,
-} from "./pipeline";
+  DesignDNA,
+  DesignConcept,
+  DesignEvaluation,
+  EvaluatedConcept,
+  DesignExplorerResult,
+  ColorStrategy,
+  TypographyStrategy,
+  ComponentShapeStrategy,
+} from "./pipeline";
+

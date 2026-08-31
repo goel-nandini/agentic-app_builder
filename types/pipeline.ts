@@ -72,3 +72,86 @@ export interface AppPlan {
     motionAndEffects: string;
   };
 }
+
+// ─── Design DNA & Explorer Types (Phase 2) ───────────────────────────────────
+
+export interface ColorStrategy {
+  primary: string;
+  secondary: string;
+  background: string;
+  surface: string;
+  textPrimary: string;
+  textMuted: string;
+  accent: string;
+  border: string;
+  usageRules: string;
+}
+
+export interface TypographyStrategy {
+  headingFont: string;
+  bodyFont: string;
+  scaleHierarchy: string;
+  letterSpacing: string;
+  transformRule: string;
+}
+
+export interface ComponentShapeStrategy {
+  borderRadius: string; // e.g. "rounded-none", "rounded-xl", "rounded-2xl"
+  borderStyle: string;   // e.g. "border border-white/10", "border-2 border-zinc-800"
+  cardStyle: string;     // e.g. "Solid high-contrast surface with crisp 1px borders"
+  buttonStyle: string;   // e.g. "Pill-shaped vibrant accent with hover bounce"
+  badgeStyle: string;    // e.g. "Monospace tag with subtle glow"
+}
+
+export interface DesignDNA {
+  conceptName: string;
+  visualStyle: string;
+  designMood: string;
+  colorStrategy: ColorStrategy;
+  typographyStrategy: TypographyStrategy;
+  layoutStrategy: string;
+  spacingStrategy: string;
+  componentShapeStrategy: ComponentShapeStrategy;
+  interactionStrategy: string;
+  animationStrategy: string;
+  imageryStrategy: string;
+  navigationStrategy: string;
+  accessibilityStrategy: string;
+  avoidPatterns: string[];
+  designQualityScore: number; // 0 - 10
+  uniquenessScore: number;    // 0 - 10
+  designReasoning: string;
+}
+
+export interface DesignConcept {
+  name: string;
+  styleDescription: string;
+  layoutRationale: string;
+  interactionModel: string;
+  visualLanguage: string;
+  colorPalette: string[];
+  keyStrengths: string[];
+}
+
+export interface DesignEvaluation {
+  domainRelevance: number; // 0 - 10
+  usability: number;       // 0 - 10
+  visualQuality: number;   // 0 - 10
+  uniqueness: number;      // 0 - 10
+  consistency: number;     // 0 - 10
+  accessibility: number;   // 0 - 10
+  implementationFeasibility: number; // 0 - 10
+  weightedTotal: number;   // 0 - 10
+  critique: string;
+}
+
+export interface EvaluatedConcept {
+  concept: DesignConcept;
+  evaluation: DesignEvaluation;
+}
+
+export interface DesignExplorerResult {
+  exploredConcepts: EvaluatedConcept[];
+  selectedConceptIndex: number;
+  designDNA: DesignDNA;
+}
