@@ -32,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider appearance={dark}>
+    <ClerkProvider appearance={dark as any}>
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${lora.variable} ${dm_sans.variable} font-sans min-h-screen bg-[#070709] text-white antialiased`}>
         <Header />

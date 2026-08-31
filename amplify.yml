@@ -7,7 +7,9 @@ frontend:
         - npx prisma generate
     build:
       commands:
-        - env | grep -e NEXT_PUBLIC_ >> .env.production
+        # Write ALL env vars (both NEXT_PUBLIC_ and server-side) into .env.production
+        # so Next.js server runtime and API routes can read them
+        - env | grep -e NEXT_PUBLIC_ -e CLERK_SECRET_KEY -e DATABASE_URL -e DIRECT_URL -e GEMINI_API_KEY -e ARCJET_KEY -e MAX_AGENT_ITERATIONS -e MAX_FIX_ATTEMPTS -e COMMAND_TIMEOUT_MS >> .env.production
         - npm run build
   artifacts:
     baseDirectory: .next
