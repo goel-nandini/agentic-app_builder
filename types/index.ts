@@ -11,3 +11,11 @@ export type {
 } from "./workspace";
 export type { ProjectSummary } from "./project";
 export type { Plan } from "./plans";
+export type {
+  AppSpecification,
+  AppPlan,
+  ComponentSpec,
+  PageSpec,
+  FeatureImplementationSpec,
+  InteractionSpec,
+} from "./pipeline";

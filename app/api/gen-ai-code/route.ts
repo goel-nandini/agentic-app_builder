@@ -7,6 +7,10 @@ import { CREDIT_COST_PER_GENERATION } from "@/lib/constants";
 import type { Message, FileData } from "@/types/workspace";
 import { aj } from "@/lib/arcjet";
 
+import { analyzeRequirements } from "@/lib/pipeline/analyzer";
+import { generatePlan } from "@/lib/pipeline/planner";
+import type { AppSpecification, AppPlan } from "@/types/pipeline";
+
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY!,
   httpOptions: { apiVersion: "v1beta" },
@@ -110,29 +114,26 @@ function trimHistory(messages: Message[]): Message[] {
 // ─── System prompt ────────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `You are a World-Class Full-Stack React Software Architect and UI/UX Designer.
-Your mission is to build STUNNING, unique, production-grade, and 100% fully functional React web applications tailored PRECISELY to whatever the user requests (supporting English, Hindi, Hinglish, casual phrases, or detailed specifications).
+Your mission is to build STUNNING, unique, production-grade, and 100% fully functional React web applications tailored PRECISELY to the provided App Specification and Architectural Plan (supporting English, Hindi, Hinglish, casual phrases, or detailed specifications).
 
 CRITICAL ARCHITECTURE & CREATIVE PRINCIPLES:
 
-1. 100% INTENT-DRIVEN & UNIQUE DESIGN (NO RIGID BLUEPRINTS):
-   - Analyze the user's specific prompt deeply. DO NOT force every app into a generic dashboard or store if that is not what was requested.
-   - Tailor the architecture, pages, components, and workflows exclusively to that specific domain:
-     * If the user wants a Game (e.g. 2048, Wordle, Chess, Quiz, Memory Match): Build an engaging, interactive game with real gameplay logic, scores, win/lose states, animations, and restart triggers.
-     * If the user wants a Tool/Utility (e.g. Code Formatter, Calculator, Timer, Markdown Editor, Invoice Generator, Color Palette Generator): Build high-utility, accurate calculation tools with instant live updates, export/copy capabilities, and custom presets.
-     * If the user wants a Creative/Media App (e.g. Music Player, Video Streamer, Recipe Book, Canvas/Drawing app): Build immersive media layouts with playlists, volume/seek controls, category browsing, and detail cards.
-     * If the user wants a Platform/SaaS (e.g. CRM, Analytics, E-commerce, Social Feed, Booking System): Build rich domain-specific workflows, metrics, filters, and detailed view modals.
+1. EXECUTE THE ARCHITECTURAL PLAN STRICTLY:
+   - Carefully follow the provided App Specification and Architectural Plan for component breakdown, state flow, responsive layout, and design direction.
+   - Tailor the architecture, pages, components, and workflows exclusively to that specific domain (games, utilities, media, SaaS, e-commerce, portfolios, social, etc.).
+   - Prioritize explicit user requirements above all else.
 
 2. REAL WORKING FUNCTIONALITY & COMPLETE STATE MANAGEMENT:
    - EVERY button, toggle, filter, search bar, slider, form, tab, and modal MUST be fully functional with React state ('useState', 'useEffect', 'useMemo', 'useCallback').
    - NEVER provide dummy/dead buttons or non-functional placeholder handlers.
    - CRITICAL SANDBOX / PREVIEW INTERACTIVITY RULES:
-     * The app runs inside a browser preview iframe. NEVER rely exclusively on keyboard events (like Arrow keys) without providing clear ON-SCREEN CLICKABLE CONTROLS (e.g. directional buttons, action buttons, clickable cards, modals).
-     * For games or keyboard-driven tools, ALWAYS include both On-Screen Touch/Click Controls (Up, Down, Left, Right D-Pad or buttons) AND keyboard listeners, with a click-to-focus helper.
+     * The app runs inside a browser preview iframe. NEVER rely exclusively on keyboard events without providing clear ON-SCREEN CLICKABLE CONTROLS.
+     * For games or keyboard-driven tools, ALWAYS include both On-Screen Touch/Click Controls AND keyboard listeners, with a click-to-focus helper.
      * Search bars actually filter items dynamically in real-time.
      * Category/status tabs switch active views smoothly.
      * Forms validate inputs and add/update items in state.
      * Deletion, toggling, favoriting, and editing mutate state immediately with clean visual feedback.
-   - Populate with generous, rich domain-specific realistic mock data (realistic names, prices, stats, avatars, descriptions, and high-resolution Unsplash image URLs).
+   - Populate with generous, rich domain-specific realistic mock data.
 
 3. 100% RESPONSIVE DESIGN (LAPTOP, TABLET, MOBILE):
    - The app must fit and look gorgeous on all screen sizes (100% full screen laptop, 768px tablet, 390px mobile).
@@ -141,13 +142,13 @@ CRITICAL ARCHITECTURE & CREATIVE PRINCIPLES:
    - Avoid fixed widths that cause horizontal scrolling. Use 'w-full', 'max-w-full', 'truncate', 'flex-wrap'.
 
 4. UNIQUE, BESPOKE VISUAL AESTHETICS (CUSTOM PER PROMPT):
-   - Choose a curated color palette that fits the app's personality (e.g. Neon Cyberpunk for tech/gaming, Warm Terracotta/Amber for food/crafts, Emerald/Zinc for finance, Modern Indigo/Violet for productivity).
+   - Adopt the color palette and UI theme designated in the Architectural Plan.
    - Incorporate modern UI polish: glassmorphism ('bg-slate-900/70 backdrop-blur-xl border border-white/10'), smooth hover transitions, subtle shadows, and rich icons from 'lucide-react'.
 
 5. MODULAR MULTI-FILE ARCHITECTURE & STRICT JSX RULES:
-   - Organize the codebase cleanly into modular files based on the app's unique needs:
+   - Implement the modular files specified in the Component Architecture plan:
      * "/App.js": Main application shell, state hub, layout. Default export.
-     * Component files matching the domain (e.g. "/components/Header.js", "/components/GameBoard.js", "/components/Editor.js", "/components/CartModal.js", etc.).
+     * Component files matching the domain (e.g. "/components/Header.js", "/components/MainView.js", etc.).
      * "/data/mockData.js": Domain-specific initial data and constants.
    - CRITICAL JSX SYNTAX RULES:
      * EVERY self-closing tag MUST be closed with '/>' (e.g. <input ... />, <img ... />, <br />, <hr />).
@@ -174,7 +175,12 @@ CRITICAL ARCHITECTURE & CREATIVE PRINCIPLES:
 
 // ─── Gemini contents builder ──────────────────────────────────────────────────
 
-function buildContents(messages: Message[], fileData: FileData | null) {
+function buildContents(
+  messages: Message[],
+  fileData: FileData | null,
+  spec?: AppSpecification,
+  plan?: AppPlan
+) {
   const trimmed = trimHistory(messages);
 
   return trimmed.map((msg, idx) => {
@@ -190,10 +196,16 @@ function buildContents(messages: Message[], fileData: FileData | null) {
       }
 
       const isLast = idx === trimmed.length - 1;
-      if (isLast && fileData) {
-        text +=
-          "\n\nCurrent project files for context:\n" +
-          JSON.stringify(fileData, null, 2);
+      if (isLast) {
+        if (spec && plan) {
+          text += `\n\n══════════════════════════════════════════════════════════════════\nAPPROVED APP SPECIFICATION:\n${JSON.stringify(spec, null, 2)}\n\n══════════════════════════════════════════════════════════════════\nARCHITECTURAL & IMPLEMENTATION PLAN:\n${JSON.stringify(plan, null, 2)}\n══════════════════════════════════════════════════════════════════\nImplement the complete React application files adhering strictly to this plan and specification.`;
+        }
+
+        if (fileData) {
+          text +=
+            "\n\nCurrent project files for context:\n" +
+            JSON.stringify(fileData, null, 2);
+        }
       }
 
       parts.push({ text });
@@ -203,6 +215,7 @@ function buildContents(messages: Message[], fileData: FileData | null) {
     return { role, parts: [{ text: msg.content }] };
   });
 }
+
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -290,7 +303,21 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(chunk));
 
       try {
-        const contents = buildContents(messages, fileData);
+        // ─── Stage 1: Requirement Analyzer ─────────────────────────────────
+        enqueue(sseEvent("status", { message: "Analyzing requirements & intent…" }));
+        const specStart = Date.now();
+        const appSpec = await analyzeRequirements(messages, fileData);
+        console.log(`[ANALYZER] Completed specification for "${appSpec.appName}" (${appSpec.appType}) in ${Date.now() - specStart}ms`);
+
+        // ─── Stage 2: Architecture & UX Planner ─────────────────────────────
+        enqueue(sseEvent("status", { message: "Formulating architectural & UX plan…" }));
+        const planStart = Date.now();
+        const appPlan = await generatePlan(appSpec, fileData);
+        console.log(`[PLANNER] Planned ${appPlan.componentArchitecture.length} components, theme "${appPlan.designDirection.uiTheme}" in ${Date.now() - planStart}ms`);
+
+        // ─── Stage 3: Code Generation ───────────────────────────────────────
+        enqueue(sseEvent("status", { message: "Generating full-stack application code…" }));
+        const contents = buildContents(messages, fileData, appSpec, appPlan);
 
         const CANDIDATE_MODELS = [
           "gemini-3.1-flash-lite",
@@ -304,6 +331,7 @@ export async function POST(request: NextRequest) {
         let lastError = null;
         let selectedModel = "";
         const genStart = Date.now();
+
 
         for (const model of CANDIDATE_MODELS) {
           try {
