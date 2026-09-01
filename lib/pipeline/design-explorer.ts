@@ -28,24 +28,31 @@ export const GENERIC_PATTERN_BLACKLIST: string[] = [
   "Generic placeholder cards with lorem ipsum style repetitive content",
 ];
 
-const DESIGN_EXPLORER_SYSTEM_PROMPT = `You are a World-Class Creative Director and Lead Design Systems Architect.
+const DESIGN_EXPLORER_SYSTEM_PROMPT = `You are a World-Class Creative Director and Lead Design Systems Architect (inspired by Manus AI, Linear, Apple, Stripe, and Vercel).
 Your mission is to invent a bespoke, distinctive, and domain-appropriate Design DNA for a React application running in a Sandpack browser environment.
 
 ANTI-GENERIC MANDATE:
 AI generators constantly output the exact same template: generic dark SaaS dashboard, purple/indigo gradient, 3 rounded cards, a mock chart, and floating blobs.
 YOU MUST ACTIVELY BREAK THIS CYCLE. Every product deserves a tailored aesthetic derived directly from its domain and user emotional needs.
 
-DOMAIN-SPECIFIC DESIGN EXAMPLES:
-- Pet Adoption / Care: Warm tactile aesthetic, emotional storytelling, personality-rich cards, cheerful honey/sage tones, playful matching badges.
-- FinTech / Trading: High-density Swiss precision, razor-sharp borders (rounded-none/rounded-sm), deep charcoal/emerald/amber indicators, tabular numerals, instant feedback.
-- Creative Portfolio / Editorial: Asymmetrical magazine grid, expansive typography, high-contrast monochrome with single vivid accent, subtle horizontal scroll or split-pane.
-- Arcade / Game: Tactile retro-futuristic or cyberpunk HUD, physical on-screen D-pad buttons, arcade score counters, high-visibility neon accents.
-- Productivity / Invoice Tool: Clean paper-like sheet contrast, crisp tabular layout, clear printable bounds, zero distracting clutter, instant live updates.
+WORLD-CLASS DESIGN ARCHETYPES (Select & customize based on domain):
+1. Linear / Raycast Dark Glassmorphism:
+   - Deep obsidian/zinc background (#09090b / #0c0a09), razor-sharp borders (border-white/10), translucent glass cards (bg-zinc-900/70 backdrop-blur-xl), electric accents (emerald-400, cyan-400, violet-400), monospace micro-badges.
+2. Apple / Vercel Minimalist Elegance:
+   - High-contrast typography hierarchy, generous whitespace, crisp 1px neutral borders, subtle card elevations (shadow-sm to shadow-xl), monochromatic depth with a single razor-sharp primary accent.
+3. Asymmetric Bento Grid Architecture:
+   - Variable card spans (col-span-2, row-span-2, col-span-1), spotlight hero widgets, embedded mini-stats with sparklines, interactive search and filter bars.
+4. Swiss High-Density FinTech & Data:
+   - Razor-sharp borders (rounded-none or rounded-sm), tabular numbers, compact padding, deep slate/charcoal backgrounds with emerald/amber profit/loss indicators, instant keyboard/click shortcuts.
+5. Warm Tactile Editorial & Lifestyle:
+   - Warm stone/sand backgrounds, rich serif/editorial headings, warm terracotta/sage accents, magazine-style full-bleed photography cards, storytelling timeline layouts.
+6. Cyberpunk / Arcade Tactile HUD:
+   - High-contrast neon cyan/lime/magenta borders, scanline/grid textures, on-screen tactile arcade buttons, monospace counters, live glowing status indicators.
 
 WORKFLOW:
 1. Generate 3 substantially DIFFERENT design concepts tailored to this specific app domain.
-   - Vary the layout structure (e.g. Split-Screen vs Bento Grid vs Horizontal Canvas vs Minimalist Sheet).
-   - Vary the visual language & mood (e.g. Warm Tactile vs High-Density Industrial vs Editorial Elegance vs Cyberpunk HUD).
+   - Vary the layout structure (e.g. Asymmetric Bento Grid vs Split-Screen Studio vs Minimalist Sheet vs Horizontal Interactive Feed).
+   - Vary the visual language & mood (e.g. Linear Dark Glassmorphism vs Editorial Warmth vs Swiss High-Density vs Modern Bento).
    - Vary color palette, typography hierarchy, and component shapes.
 2. Rigorously evaluate each concept on:
    - domainRelevance (0-10)
@@ -129,6 +136,8 @@ JSON SCHEMA:
   }
 }`;
 
+import { jsonrepair } from "jsonrepair";
+
 function cleanAndParseJson(raw: string): unknown {
   let cleaned = raw.trim();
   if (cleaned.startsWith("```")) {
@@ -137,12 +146,21 @@ function cleanAndParseJson(raw: string): unknown {
   try {
     return JSON.parse(cleaned);
   } catch {
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace = cleaned.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+    try {
+      return JSON.parse(jsonrepair(cleaned));
+    } catch {
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const extracted = cleaned.slice(firstBrace, lastBrace + 1);
+        try {
+          return JSON.parse(extracted);
+        } catch {
+          return JSON.parse(jsonrepair(extracted));
+        }
+      }
+      throw new Error("Unable to parse JSON from Design Explorer output");
     }
-    throw new Error("Unable to parse JSON from Design Explorer output");
   }
 }
 
@@ -317,8 +335,8 @@ Ensure the 3 concepts are distinct in visual language, layout geometry, typograp
 
 
   const CANDIDATE_MODELS = [
-    "gemini-3.1-flash-lite",
     "gemini-3.5-flash",
+    "gemini-3.6-flash",
     "gemini-3.7-flash",
     "gemini-flash-latest",
   ];

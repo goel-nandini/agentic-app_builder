@@ -8,35 +8,42 @@ const ai = new GoogleGenAI({
   httpOptions: { apiVersion: "v1beta" },
 });
 
-const ANALYZER_SYSTEM_PROMPT = `You are a Principal Product Architect and System Requirements Analyst.
-Your mission is to deeply analyze the user's natural language request (supporting English, Hindi, Hinglish, casual prompts, or complex specifications) and construct a complete, crystal-clear, structured App Specification.
+const ANALYZER_SYSTEM_PROMPT = `You are a Principal Product Architect and Autonomous System Requirements Analyst (inspired by Manus AI).
+Your mission is to deeply analyze the user's natural language request (supporting English, Hindi, Hinglish, casual phrases, or complex specifications) and SUPERCHARGE it into a complete, rich, production-grade App Specification.
 
-CRITICAL RULES:
-1. Prioritize explicit user requirements above all else. If the user mentions specific fields, names, flows, or design preferences, capture them precisely.
-2. Support ANY application domain seamlessly (SaaS dashboards, e-commerce, interactive games, productivity utilities, social feeds, media players, educational tools, calculators, portfolios, etc.). Do not force non-dashboard requests into generic dashboards.
-3. Infer necessary implied functional requirements (e.g. state persistence, search/filtering, validation, responsive layouts, realistic initial datasets).
+AUTONOMOUS INTENT EXPANSION (MANUS-GRADE):
+When the user gives a simple or casual prompt (e.g. "make a crypto tracker", "luxury coffee brew guide", "fitness logger", "photographer portfolio", "ecommerce sneaker store", "saas billing"):
+1. DO NOT produce a barebones, simplistic 3-card outline.
+2. AUTONOMOUSLY EXPAND the core idea into a rich, full-featured product ecosystem with:
+   - Dynamic Hero Showcase / Command Header with live status, search, and primary action triggers.
+   - Multi-View Architecture (e.g., Overview/Explore, Deep Analytics/Stats, Interactive Studio/Builder, Saved/Favorites, Details Modal/Drawer, Settings/Filters).
+   - Deep Working Interactivity: Real-time search with instant filtering, category pills, sorting dropdowns, bookmarking/favoriting with state persistence, interactive creation modals with validation, dynamic metric recalculation, and animated charts.
+   - Rich Domain Entities: Detailed models with 8-15 realistic attributes (high-res Unsplash imagery, tags, badges, metrics, author avatars, pricing, timestamps).
+3. Strictly prevent generic or repetitive SaaS templates for non-SaaS domains.
 4. Output STRICT JSON conforming to the schema below. Never return markdown backticks or commentary outside JSON.
 
 JSON SCHEMA:
 {
   "appName": "<Crisp descriptive name>",
-  "appType": "<e.g., Interactive Game | SaaS Dashboard | Productivity Tool | E-Commerce Platform | Creative Utility>",
+  "appType": "<e.g., Interactive Game | SaaS Dashboard | Productivity Tool | E-Commerce Platform | Creative Utility | Editorial Portfolio>",
   "targetUsers": "<Description of intended users>",
   "problemStatement": "<Core problem or use case this application solves>",
-  "coreFeatures": ["<Feature 1>", "<Feature 2>", "<Feature 3>"],
-  "secondaryFeatures": ["<Secondary/supporting feature 1>", "<Secondary/supporting feature 2>"],
-  "requiredPages": ["<Main view or page 1>", "<View/Modal 2>"],
+  "coreFeatures": ["<Feature 1>", "<Feature 2>", "<Feature 3>", "<Feature 4>", "<Feature 5>"],
+  "secondaryFeatures": ["<Secondary/supporting feature 1>", "<Secondary/supporting feature 2>", "<Secondary/supporting feature 3>"],
+  "requiredPages": ["<Main view or page 1>", "<View/Modal 2>", "<Analytics/Detail View 3>"],
   "navigationStructure": "<Description of how users navigate between views/tabs/modals>",
   "importantUserFlows": ["<Step-by-step user journey 1>", "<Step-by-step user journey 2>"],
   "dataEntities": ["<Entity 1 with key fields>", "<Entity 2 with key fields>"],
-  "functionalRequirements": ["<Specific working interactive requirement 1>", "<Specific interactive requirement 2>"],
-  "nonFunctionalRequirements": ["<Performance, real-time interactivity, instant visual feedback>"],
+  "functionalRequirements": ["<Specific working interactive requirement 1>", "<Specific interactive requirement 2>", "<Specific interactive requirement 3>"],
+  "nonFunctionalRequirements": ["<Performance, real-time interactivity, instant visual feedback, responsive smoothness>"],
   "responsiveRequirements": "<Mobile, tablet, and desktop layout adaptation strategy>",
   "accessibilityRequirements": "<Keyboard navigation, contrast, clear button states, readable text>",
   "designRequirements": "<Visual tone, color palette direction, glassmorphism/cards, micro-interactions>",
   "explicitUserPreferences": ["<Any specific constraint or preference requested by the user>"],
-  "thingsToAvoid": ["<Dead buttons, placeholder-only inputs, broken non-reactive handlers, missing empty states>"]
+  "thingsToAvoid": ["<Dead buttons, placeholder-only inputs, generic 3-card repetition, missing empty states>"]
 }`;
+
+import { jsonrepair } from "jsonrepair";
 
 function cleanAndParseJson(raw: string): unknown {
   let cleaned = raw.trim();
@@ -46,12 +53,21 @@ function cleanAndParseJson(raw: string): unknown {
   try {
     return JSON.parse(cleaned);
   } catch {
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace = cleaned.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+    try {
+      return JSON.parse(jsonrepair(cleaned));
+    } catch {
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const extracted = cleaned.slice(firstBrace, lastBrace + 1);
+        try {
+          return JSON.parse(extracted);
+        } catch {
+          return JSON.parse(jsonrepair(extracted));
+        }
+      }
+      throw new Error("Unable to parse JSON from Analyzer output");
     }
-    throw new Error("Unable to parse JSON from Analyzer output");
   }
 }
 
@@ -73,7 +89,7 @@ function sanitizeSpecification(parsed: any, userPrompt: string): AppSpecificatio
     accessibilityRequirements: typeof parsed.accessibilityRequirements === "string" ? parsed.accessibilityRequirements : "High contrast text, interactive focus indicators",
     designRequirements: typeof parsed.designRequirements === "string" ? parsed.designRequirements : "Modern aesthetic, tailored color palette, glassmorphism polish",
     explicitUserPreferences: Array.isArray(parsed.explicitUserPreferences) ? parsed.explicitUserPreferences : [],
-    thingsToAvoid: Array.isArray(parsed.thingsToAvoid) ? parsed.thingsToAvoid : ["Dead buttons", "Missing state"],
+    thingsToAvoid: Array.isArray(parsed.thingsToAvoid) ? parsed.thingsToAvoid : ["Dead buttons", "Missing state", "Generic 3-card repetition"],
   };
 }
 
@@ -100,10 +116,9 @@ USER REQUEST & CONVERSATION:
 ${conversationSummary}
 ${fileData ? `\n\nEXISTING WORKSPACE CONTEXT:\n${JSON.stringify({ title: fileData.title, existingFiles: Object.keys(fileData.files) })}` : ""}${memoryPromptSection}`;
 
-
   const CANDIDATE_MODELS = [
-    "gemini-3.1-flash-lite",
     "gemini-3.5-flash",
+    "gemini-3.6-flash",
     "gemini-3.7-flash",
     "gemini-flash-latest",
   ];

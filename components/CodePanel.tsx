@@ -579,7 +579,48 @@ export function CodePanel({
     if (fileData) setActiveTab("preview");
   }, [fileData]);
 
-  const files = fileData?.files ?? PLACEHOLDER_FILES;
+  const defaultStyles = `
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #09090b;
+  color: #f4f4f5;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+`;
+
+  const rawFiles = fileData?.files ?? PLACEHOLDER_FILES;
+  const files = {
+    "/styles.css": { code: defaultStyles },
+    ...rawFiles,
+  };
   const dependencies = {
     ...BASE_DEPENDENCIES,
     ...(fileData?.dependencies ?? {}),
@@ -601,7 +642,7 @@ export function CodePanel({
         options={{
           externalResources: [
             "https://cdn.tailwindcss.com",
-            "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap",
+            "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap",
           ],
           recompileMode: "delayed",
           recompileDelay: 500,

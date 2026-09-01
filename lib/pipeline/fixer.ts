@@ -31,6 +31,8 @@ JSON SCHEMA:
   }
 }`;
 
+import { jsonrepair } from "jsonrepair";
+
 function cleanAndParseJson(raw: string): any {
   let cleaned = raw.trim();
   if (cleaned.startsWith("```")) {
@@ -39,12 +41,21 @@ function cleanAndParseJson(raw: string): any {
   try {
     return JSON.parse(cleaned);
   } catch {
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace = cleaned.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+    try {
+      return JSON.parse(jsonrepair(cleaned));
+    } catch {
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const extracted = cleaned.slice(firstBrace, lastBrace + 1);
+        try {
+          return JSON.parse(extracted);
+        } catch {
+          return JSON.parse(jsonrepair(extracted));
+        }
+      }
+      throw new Error("Unable to parse JSON from Fixer output");
     }
-    throw new Error("Unable to parse JSON from Fixer output");
   }
 }
 
@@ -83,9 +94,10 @@ ${filesOverview}
 Provide the complete repaired code files adhering strictly to the JSON schema.`;
 
     const CANDIDATE_MODELS = [
-      "gemini-3.1-flash-lite",
       "gemini-3.5-flash",
+      "gemini-3.6-flash",
       "gemini-3.7-flash",
+      "gemini-flash-latest",
     ];
 
     let rawOutput = "";

@@ -63,6 +63,8 @@ OUTPUT: Strict JSON only:
 
 If shouldResearch is false, toolCalls must be an empty array [].`;
 
+import { jsonrepair } from "jsonrepair";
+
 function cleanJson(raw: string): unknown {
   let cleaned = raw.trim();
   if (cleaned.startsWith("```")) {
@@ -71,10 +73,14 @@ function cleanJson(raw: string): unknown {
   try {
     return JSON.parse(cleaned);
   } catch {
-    const fb = cleaned.indexOf("{");
-    const lb = cleaned.lastIndexOf("}");
-    if (fb !== -1 && lb > fb) return JSON.parse(cleaned.slice(fb, lb + 1));
-    throw new Error("Unable to parse Tool Agent decision JSON");
+    try {
+      return JSON.parse(jsonrepair(cleaned));
+    } catch {
+      const fb = cleaned.indexOf("{");
+      const lb = cleaned.lastIndexOf("}");
+      if (fb !== -1 && lb > fb) return JSON.parse(cleaned.slice(fb, lb + 1));
+      throw new Error("Unable to parse Tool Agent decision JSON");
+    }
   }
 }
 
@@ -104,7 +110,7 @@ ${toolMenu}
 
 Decide and return JSON.`;
 
-  const CANDIDATE_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.7-flash"];
+  const CANDIDATE_MODELS = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest"];
 
   for (const model of CANDIDATE_MODELS) {
     try {

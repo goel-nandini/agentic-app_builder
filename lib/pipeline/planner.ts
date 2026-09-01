@@ -7,13 +7,19 @@ const ai = new GoogleGenAI({
   httpOptions: { apiVersion: "v1beta" },
 });
 
-const PLANNER_SYSTEM_PROMPT = `You are a Principal Software Architect and UI/UX Lead.
-Your mission is to take a structured App Specification and formulate a comprehensive, modular Architecture & Implementation Plan for a high-performance React application running in a Sandpack browser preview sandbox.
+const PLANNER_SYSTEM_PROMPT = `You are a World-Class Principal Software Architect and UI/UX Lead (inspired by Manus AI).
+Your mission is to take a structured App Specification and formulate a comprehensive, modular Architecture & Implementation Plan for a high-performance, visually stunning React application running in a Sandpack browser preview sandbox.
 
-CRITICAL ARCHITECTURAL RULES:
-1. The app uses React, Tailwind CSS (CDN), and lucide-react icons in Sandpack.
-2. The root entry point must always be /App.js with modular component sub-files (e.g. /components/Header.js, /components/MainView.js, /components/Controls.js, /data/mockData.js).
-3. DO NOT GENERATE FINAL CODE in this planning stage. Focus strictly on component hierarchy, state distribution, props, interactions, responsive layout, and design direction.
+MANUS-GRADE ARCHITECTURE PRINCIPLES:
+1. NON-GENERIC, MULTI-DIMENSIONAL LAYOUTS:
+   - Plan rich layouts matching the domain: Bento Grids (asymmetrical col-span-2/row-span-2 cards), Split-Screen Views, Dynamic Command Bars, Floating Action Docks, or Interactive Studio Canvases.
+   - Avoid monotonous single-row 3-card grids.
+2. RICH MODULAR ARCHITECTURE:
+   - Root entry point is ALWAYS /App.js (global state hub, navigation/tab orchestration, notification toasts, modal controllers).
+   - Component sub-files in /components/ (e.g. /components/Header.js, /components/HeroShowcase.js, /components/InteractiveGrid.js, /components/DetailModal.js, /components/StatsView.js, /components/ControlDrawer.js).
+   - Comprehensive domain dataset in /data/mockData.js with 8-15 rich realistic items (including real high-res Unsplash photo URLs, tags, badges, metrics, author info, timestamps).
+3. COMPLETE INTERACTION COVERAGE:
+   - Plan working state for every interactive element (search filtering, category toggling, modal opening/closing, sorting, CRUD actions, bookmarking).
 4. Output STRICT JSON conforming to the schema below. Never return markdown backticks or commentary outside JSON.
 
 JSON SCHEMA:
@@ -64,19 +70,21 @@ JSON SCHEMA:
     }
   ],
   "responsiveStrategy": {
-    "desktop": "<Grid/layout on 1024px+>",
-    "tablet": "<Layout on 768px>",
-    "mobile": "<Bottom nav, stacked layout, hamburger/drawer on 390px>",
+    "desktop": "<Bento Grid / Multi-pane layout on 1024px+>",
+    "tablet": "<Adaptive 2-column or stacked layout on 768px>",
+    "mobile": "<Bottom command bar, swipeable tabs, stacked cards on 390px>",
     "breakpoints": "<Key Tailwind breakpoint classes to use (sm:, md:, lg:, xl:)>"
   },
   "designDirection": {
-    "colorPalette": ["#0f172a", "#3b82f6", "#10b981", "#f59e0b"],
-    "typography": "Modern clean sans-serif with strong hierarchy (Outfit/Inter vibes)",
-    "uiTheme": "<e.g. Sleek Dark Mode with Indigo/Violet Accents>",
-    "layoutStyle": "<e.g. Glassmorphic cards with subtle borders and deep backdrop blur>",
-    "motionAndEffects": "<Subtle hover scale, smooth tab transitions, pulsating badges>"
+    "colorPalette": ["#09090b", "#3b82f6", "#10b981", "#f59e0b"],
+    "typography": "Modern clean sans-serif with strong hierarchy (Outfit/Inter/Plus Jakarta Sans vibes)",
+    "uiTheme": "<e.g. Sleek Obsidian Glassmorphism with Electric Emerald Accents>",
+    "layoutStyle": "<e.g. Asymmetric Bento grid with translucent cards, 1px subtle borders and backdrop blur>",
+    "motionAndEffects": "<Hover scale, active press feedback, smooth tab crossfade, status glow>"
   }
 }`;
+
+import { jsonrepair } from "jsonrepair";
 
 function cleanAndParseJson(raw: string): unknown {
   let cleaned = raw.trim();
@@ -86,12 +94,21 @@ function cleanAndParseJson(raw: string): unknown {
   try {
     return JSON.parse(cleaned);
   } catch {
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace = cleaned.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+    try {
+      return JSON.parse(jsonrepair(cleaned));
+    } catch {
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const extracted = cleaned.slice(firstBrace, lastBrace + 1);
+        try {
+          return JSON.parse(extracted);
+        } catch {
+          return JSON.parse(jsonrepair(extracted));
+        }
+      }
+      throw new Error("Unable to parse JSON from Planner output");
     }
-    throw new Error("Unable to parse JSON from Planner output");
   }
 }
 
@@ -158,29 +175,34 @@ function sanitizePlan(parsed: any, spec: AppSpecification): AppPlan {
       ? parsed.interactionPlan
       : [
           {
-            userAction: "User clicks interactive buttons, inputs, or controls",
-            expectedBehavior: "State updates immediately and view re-renders seamlessly",
-            feedbackMechanism: "Visual indicator and state highlight",
+            userAction: "Filter items by category or keyword",
+            expectedBehavior: "Live update displayed cards immediately",
+            feedbackMechanism: "Active chip highlight and count badge update",
+          },
+          {
+            userAction: "Click item card for details",
+            expectedBehavior: "Open rich modal with full specifications and actions",
+            feedbackMechanism: "Smooth modal fade-in with backdrop blur",
           },
         ],
     responsiveStrategy: parsed.responsiveStrategy && typeof parsed.responsiveStrategy === "object"
       ? {
-          desktop: parsed.responsiveStrategy.desktop || "Full width container with multi-column grid",
-          tablet: parsed.responsiveStrategy.tablet || "2-column fluid grid with responsive padding",
-          mobile: parsed.responsiveStrategy.mobile || "Single column vertical stack with touch-friendly buttons",
+          desktop: parsed.responsiveStrategy.desktop || "Bento grid layout with sticky control header",
+          tablet: parsed.responsiveStrategy.tablet || "2-column fluid grid",
+          mobile: parsed.responsiveStrategy.mobile || "Stacked cards with bottom navigation bar",
           breakpoints: parsed.responsiveStrategy.breakpoints || "sm: md: lg: xl:",
         }
       : {
-          desktop: "Multi-column grid layout (lg:grid-cols-3)",
-          tablet: "Dual column grid layout (md:grid-cols-2)",
-          mobile: "Single column stacked layout with full-width action controls",
-          breakpoints: "sm:640px md:768px lg:1024px",
+          desktop: "Asymmetric Bento grid with sticky navigation",
+          tablet: "2-column responsive layout",
+          mobile: "Single column scrollable feed with touch targets",
+          breakpoints: "sm: md: lg: xl:",
         },
     designDirection: parsed.designDirection && typeof parsed.designDirection === "object"
       ? {
-          colorPalette: Array.isArray(parsed.designDirection.colorPalette) ? parsed.designDirection.colorPalette : ["#0f172a", "#6366f1", "#10b981", "#f43f5e"],
-          typography: parsed.designDirection.typography || "Inter/Sans modern typography",
-          uiTheme: parsed.designDirection.uiTheme || "Sleek Dark Theme with vivid accents",
+          colorPalette: Array.isArray(parsed.designDirection.colorPalette) ? parsed.designDirection.colorPalette : ["#09090b", "#6366f1", "#10b981", "#f43f5e"],
+          typography: parsed.designDirection.typography || "Plus Jakarta Sans / Inter modern typography",
+          uiTheme: parsed.designDirection.uiTheme || "Sleek Obsidian Glassmorphism with vivid accents",
           layoutStyle: parsed.designDirection.layoutStyle || "Glassmorphism with backdrop blur and border-white/10",
           motionAndEffects: parsed.designDirection.motionAndEffects || "Smooth hover transitions and active states",
         }
@@ -208,8 +230,8 @@ ${fileData ? `\n\nEXISTING WORKSPACE FILES:\n${JSON.stringify(Object.keys(fileDa
 Ensure the component architecture explicitly lists /App.js and all needed subcomponents (e.g. in /components/ and /data/mockData.js). Remember: DO NOT write final code, write the structured architectural plan.`;
 
   const CANDIDATE_MODELS = [
-    "gemini-3.1-flash-lite",
     "gemini-3.5-flash",
+    "gemini-3.6-flash",
     "gemini-3.7-flash",
     "gemini-flash-latest",
   ];
