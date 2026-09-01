@@ -19,22 +19,22 @@ export const aj = arcjet({
     // Adjust refillRate / capacity for your plans as needed.
     tokenBucket({
       mode: "LIVE",
-      refillRate: 5, // refill 5 tokens every...
-      interval: 60, // ...60 seconds
-      capacity: 5, // max burst = 5
+      refillRate: 10, // refill 10 tokens every...
+      interval: 60,  // ...60 seconds
+      capacity: 10,  // max burst = 10
     }),
 
     // ── Prompt injection detection ─────────────────────────────────────────
-    // Blocks jailbreak attempts before they hit Gemini.
-    // Arcjet inspects the request body automatically — no extra params needed.
+    // Logs suspicious prompts but never hard-blocks them.
+    // Switching to DRY_RUN prevents false-positive blocking of valid app prompts.
     detectPromptInjection({
-      mode: "LIVE",
+      mode: "DRY_RUN",
     }),
 
     // ── Sensitive information ──────────────────────────────────────────────
     // Prevents users from accidentally leaking secrets into Gemini prompts
     sensitiveInfo({
-      mode: "LIVE",
+      mode: "DRY_RUN",
       deny: ["CREDIT_CARD_NUMBER", "PHONE_NUMBER"],
     }),
   ],

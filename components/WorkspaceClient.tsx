@@ -154,15 +154,26 @@ export function WorkspaceClient({
         });
 
         if (res.status === 402) {
+          toast.error("Not enough credits to generate.");
           setMessages((prev) => prev.slice(0, -1));
           return;
         }
         if (res.status === 429) {
-          toast.error("Too many requests. Please slow down.");
+          toast.error("Too many requests. Please wait a moment before generating again.");
           setMessages((prev) => prev.slice(0, -1));
           return;
         }
-        if (!res.ok || !res.body) throw new Error("Generation failed");
+        if (res.status === 400 || res.status === 403) {
+          let errMsg = "Request blocked. Please rephrase your prompt and try again.";
+          try {
+            const errBody = await res.json();
+            if (errBody?.message) errMsg = errBody.message;
+          } catch { /* ignore */ }
+          toast.error(errMsg);
+          setMessages((prev) => prev.slice(0, -1));
+          return;
+        }
+        if (!res.ok || !res.body) throw new Error("Generation failed. Please try again.");
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
